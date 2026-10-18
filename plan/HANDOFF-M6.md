@@ -93,17 +93,26 @@ node tools/check-release.mjs --online→ **PASS 9 / FAIL 0 / SKIP 0**（rc=0）
 
 > 与 `plan/RELEASE-M6.md` §2.4、`plan/06` §四 风险登记同源。**没有 M7 开发棒**。
 
-0. **【最高优先】补方法论装订**（复盘轮实测发现：本项目 M0–M6 **全程没有按
-   `ai-tool-project-sprint` 的硬约束③装订**——仓库里搜不到 skill 名、没有 `AGENTS.md`、
-   没有布局门）。下一棒**第一动作** = 三件一起补：
-   ① `AGENTS.md`（仓库根：方法论名 + 装订日期 + 强制布局清单 + 门命令 + "新对话第一件事"）；
-   ② `tools/check-sprint-layout.mjs`（**可直接取现成实现**：skill 的
-   `references/templates/check-sprint-layout.mjs`，6 组变异验证已过）；
-   ③ `plan/00` 顶部一行装订行（方法论名 + 门命令 + 装订日期，同现于一行）。
-   补完后在 CI 加一步、并按 skill 的 6 组变异逐条验红。
-   **注意**：这三件含 `tools/`（非纯文档面），**不得混进 `v0.1.0` 之后的提交**——
-   按本仓"tag 后只允许文档面"的口径，装订放进**下一个里程碑**（或另开一次明确的收尾轮），
-   不要在发布留档的追加提交里夹带。
+0. **【已完成，复盘轮】方法论装订**（复盘发现本项目 M0–M6 **全程没有按
+   `ai-tool-project-sprint` 的硬约束③装订**）。用户确认后同轮补齐，实测结果：
+
+   | 装订件 | 落点 | 验证 |
+   | --- | --- | --- |
+   | ① 仓库锚点 | `AGENTS.md`（方法论名 + 装订日期 + 强制布局清单 + 门命令 + "新对话第一件事"） | — |
+   | ② 布局门 | `tools/check-sprint-layout.mjs`（8 项断言：文件/装订行/小节/CI 步骤/跨副本状态一致/交接单/缺口列/两栏留档） | **7 组变异全部真红 + 还原后全绿** |
+   | ③ `plan/00` 装订行 | 首行下三锚点同现（方法论名 + 门命令 + 日期） | 布局门 `LAYOUT.BINDING_HEAD` |
+   | ④ CI 一步 | `.github/workflows/ci.yml` 的 `Sprint layout gate (methodology binding)` | 布局门 `LAYOUT.CI_STEP` |
+   | ⑤ 常驻测试 | `tests/sprint-layout.test.mjs`（4 项，测试数 133 → **137**） | `npm test` 全绿 |
+
+   ```bash
+   npm run layout                          # 布局门：全绿
+   node tools/check-sprint-layout.mjs      # 同上（8 项断言 + 扫到几个的自证）
+   ```
+
+   **越界说明（如实记）**：装订含 `tools/`、`tests/`、`.github/`，**不是纯文档面**——
+   与 §8 勘误同源，是按用户明确指示做的越界动作；**发布物未受影响**：
+   `git diff v0.1.0..HEAD -- src/ index.html` 为空，`npm run build` 产物与 Release 附件
+   `cmp` 逐字节一致（`4e7fddd…`）。K40 由此**从"待建"变为"已实现"**。
 1. **发布后不改源码**：`v0.1.0` 的附件已定稿。若将来改了 `src/`，必须**升版本号**（K37，两处同时改）+ 新 tag + 新 Release，**不要**覆盖旧附件。
 2. **`plan/05` §七 的剩余 ⬜ 是能力边界，不是欠账**：移动端布局（首期只保证桌面）、断网专项验证。要做就另开里程碑并写 DoD。
 3. **二期待办（来自 `plan/06` §三 开放项与 `plan/01`）**：扩展门基（NAND / XOR / MUX）、自定义关卡编辑器、每日题。任一项都要先补 DoD 与断言，再动手。
@@ -125,7 +134,7 @@ M6 新增（接 `plan/HANDOFF-M5.md` §5 的 K31–K35）：
 
 | 编号 | 口径 | 落点 |
 | --- | --- | --- |
-| **K40** | 本仓必须**方法论装订**：`AGENTS.md`（方法论名 + 装订日期 + 强制布局清单 + 门命令）+ `tools/check-sprint-layout.mjs`（布局门，含"里程碑状态跨副本一致""`plan/06` 缺口列无已 ✅ 里程碑""收尾棒有交接单与两栏留档"）+ `plan/00` 顶部装订行（三锚点同现一行）；布局门在 CI 有一步，且经 6 组变异验证 | 待建：`AGENTS.md`、`tools/check-sprint-layout.mjs`、`plan/00`、`.github/workflows/ci.yml` |
+| **K40** | 本仓必须**方法论装订**：`AGENTS.md`（方法论名 + 装订日期 + 强制布局清单 + 门命令）+ `tools/check-sprint-layout.mjs`（布局门，含"里程碑状态跨副本一致""`plan/06` 缺口列无已 ✅ 里程碑""收尾棒有交接单与两栏留档""CI 有布局门步骤"）+ `plan/00` 顶部装订行（三锚点同现一行）；布局门在 CI 有一步、在 `npm test` 有常驻测试，且经变异验证 | **已实现**（复盘轮）：`AGENTS.md`、`tools/check-sprint-layout.mjs`、`plan/00`、`.github/workflows/ci.yml`、`tests/sprint-layout.test.mjs`；7 组变异全红 |
 
 M6 直接相关的既有条目：**K13**（零外链）、**K16**（零依赖）、**K23**（src/ 卫生）、**K32**（样例产出方式）、**K33**（构建逐字节确定）、**K34**（测试清单逐文件登记）、**K35**（交接单守门，本轮扩到 M6）。
 

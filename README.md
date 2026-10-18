@@ -44,11 +44,15 @@
 
 ```bash
 node --version        # 需要 >= 22（本项目在 v24.15.0 实测）
+npm run layout        # 布局门：项目是否仍长在方法论上（`AGENTS.md` 那条；续接对话第一件事）
 npm test              # 单元 + 交叉验证
 npm run verify        # 全量自检（一条命令，rc=0 表示全绿）
 npm run build         # 产出 dist/index.html（单文件、零外链）
 npm run dev           # 本地预览 http://127.0.0.1:4173/
 ```
+
+> 本项目遵循 [`ai-tool-project-sprint`](AGENTS.md) 方法论（装订 2026-10-18）：
+> 仓库锚点见 [`AGENTS.md`](AGENTS.md)，布局门 `tools/check-sprint-layout.mjs` 在 CI 里有一条步骤。
 
 可选的两条浏览器级校验（本机需有 Chromium；`verify:engines` 还需要 Firefox，缺则 SKIP）：
 

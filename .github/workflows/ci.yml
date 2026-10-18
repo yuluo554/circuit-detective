@@ -29,6 +29,9 @@ jobs:
       - name: "Show versions"
         run: node --version
 
+      - name: "Sprint layout gate (methodology binding)"
+        run: node tools/check-sprint-layout.mjs
+
       - name: "Fixtures reproduce byte-for-byte"
         run: node tools/gen-fixtures.mjs --check
 

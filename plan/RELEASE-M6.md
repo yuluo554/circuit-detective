@@ -182,11 +182,11 @@ PASS 9 / FAIL 0 / SKIP 0   （rc=0）
 | 附件与校验和 / 复核三步 | 部分实现 | 已做"真下载 → sha256 复算 → 与留档件比对"；**未**上传 `SHA256SUMS` 伴随文件（K36 口径为 sha256 写进 Release 正文） |
 | 已发布窗口关闭后的缺陷处置 | 实现 | 本版无发布后缺陷；tag 后的提交只含文档面 + 一处测试面（见下条实测更正） |
 | DoD 打勾只能在事实落地后 | 实现 | §1.4 三件套 ①② 在 tag 前为 ⬜，落地后翻 ✅ 并指向 §二 |
-| tag 之后只允许文档面提交 | **部分实现（实测有偏差，如实记）** | `git diff --name-only v0.1.0..HEAD` 实际是 **`plan/` + `README.md` + `tests/handoff-gate.test.mjs`** 三类。前两类属文档面（合规）；**第三类不是**——它是"交接单守门扩到 M6"的**测试面**改动（提交 `8386a63`）。**发布物未受影响**：`git diff v0.1.0..HEAD -- src/` 为空，`dist/index.html` 仍是 §1.3 的 `4e7fddd…`（已从 tag 树重建 `cmp` 验证）。但**"只含 `plan/`"这句当时写得比事实强**，按实测更正；不重写历史、不重打 tag |
+| tag 之后只允许文档面提交 | **不成立（如实记，不粉饰）** | `git diff --name-only v0.1.0..HEAD` 实际含**四类面**：① 文档面 `plan/*` + `README.md`；② **测试面** `tests/handoff-gate.test.mjs`、`tests/sprint-layout.test.mjs`；③ **工具/配置面** `tools/check-sprint-layout.mjs`、`package.json`、`.github/workflows/ci.yml`；④ **锚点** `AGENTS.md`。②③④ 是"交接单守门扩到 M6"与"复盘轮补方法论装订"两件事，后者**经用户明确指示**执行。**发布物始终未受影响**：`git diff v0.1.0..HEAD -- src/ index.html` 为空，`dist/index.html` 仍是 §1.3 的 `4e7fddd…`（已从 tag 树重建 `cmp` 验证）。**该口径在本仓应改写为**"tag 之后只允许**非 `src/` 面**提交（文档 / 测试 / 工具 / 配置），任何 `src/` 改动都必须升版本号重发" |
 | annotated tag 两端一致 = **对象哈希**一致 | 实现（本轮补查） | 本地 `76b56283d167…` == 远端 `git/ref/tags/v0.1.0` 的 `object.sha` |
 | push 数 = run 数对账 | 实现（本轮补查） | 6 次 push ↔ 6 条 run（含 tag run），按 `event/headBranch/headSha/conclusion` 逐条配对，全 success |
 | 脱敏：提交身份 + **tagger 邮箱** | 实现（本轮补查） | `git log --format='%ae'` 去重 + tag 对象 tagger，**全部为 GitHub noreply 邮箱** |
 | 每条已交付命令都有离线 CI 冒烟 | 实现 | CI 步骤：fixture `--check` / `npm test` / `npm run verify` / `npm run build` / `check-dist`；`smoke` 与 `verify:engines` 刻意不进 CI（需仓外 playwright 缓存，已在 `plan/05` §八 声明） |
 | 多平台冻结产物原生构建 + 原生冒烟 | 不适用 | 交付物是浏览器单文件，平台无关；CI 矩阵覆盖 Windows/Ubuntu × Node 22/24 |
 | 一致性门（题面/发布物/README 的名字与版本） | 实现 | `VERSION_SINGLE_SOURCE` + `readme-gate.test.mjs` + `check-release.mjs` 的 `DOCS_PRESENT` |
-| **方法论装订与布局门（新增，见 `plan/HANDOFF-M6.md` §复盘发现）** | **不适用（本轮登记时点）** | 本项目 M0–M6 **从未装订**（无 `AGENTS.md`、无布局门）；**下一棒第一动作 = 补装订**，见 `plan/HANDOFF-M6.md` §4 第 0 条 |
+| **方法论装订与布局门（新增）** | **实现（复盘轮补装）** | 复盘时登记为"未装订"，经用户确认后同轮补齐：`AGENTS.md` + `tools/check-sprint-layout.mjs`（8 项断言，**7 组变异全红**）+ `plan/00` 装订行 + CI 一步 + 常驻测试（测试数 133 → 137）。该提交含 `tools/`/`tests/`/`.github/`，**越出"纯文档面"**；**发布物未受影响**（`src/` 零差异、重建产物与附件 `cmp` 一致）。详见 `plan/HANDOFF-M6.md` §4 第 0 条 |

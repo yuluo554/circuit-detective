@@ -1,5 +1,7 @@
 # 00 · README 总览 — 10-19-circuit-detective（黑盒电路侦探）
 
+> 方法论：`ai-tool-project-sprint`（装订 2026-10-18）｜布局门：`node tools/check-sprint-layout.mjs`（或 `npm run layout`）｜**续接对话第一件事 = 跑它**｜锚点见 `AGENTS.md`
+
 - **项目**：黑盒电路侦探（Circuit Detective）——纯前端单页 Web 游戏
 - **性质**：不参赛项目题 · 发布 GitHub **公开仓库** · 署名 `yuluo554`
 - **版本**：v1（2026-10-17 定稿；需求侧与开源检索基准日 2026-10-17）；M0 骨架落地 2026-10-18
@@ -23,6 +25,7 @@
 | `docs/verify-sample.txt` | `npm run verify` 的真实输出样例（p50 / p99、通过率、外链扫描） | ✅ v0.1.0 重生成（10 段） |
 | `plan/HANDOFF-M<k>.md` | **第 k 个里程碑的收尾交接单**（基线证据 / 待办 / K 口径 / 环境坑 / DoD / 启动提示词） | M1 ✅、M2 ✅、M3 ✅、M4 ✅、M5 ✅、M6 ✅（收尾棒） |
 | `plan/RELEASE-M6.md` | 发布留档（tag 前入库；tag 后追加事实分栏） | ✅ M6（v0.1.0 已发布） |
+| `AGENTS.md` + `tools/check-sprint-layout.mjs` | **方法论装订**：仓库锚点 + 布局门（阶段 0 第零步，K40） | ✅ 2026-10-18（复盘轮补） |
 
 > **交接单命名规则**（2026-10-18 钉死）：`plan/HANDOFF-M<k>.md` = 第 k 个里程碑**收尾**时写的交接单，
 > 该棒完成后由下一棒读取。历史沿革：`HANDOFF-M1.md` 写于 M1（与 M2 同提交）收尾，其 §7 曾把
