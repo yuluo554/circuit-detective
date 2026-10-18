@@ -7,7 +7,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateLevel } from "../src/core/generator.mjs";
-import { createDraft } from "../src/core/editor.mjs";
+import { truthTableMasks } from "../src/core/sim.mjs";
 import { gateInputPin, gateOutputPin, socketPoint } from "../src/ui/layout.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -85,6 +85,37 @@ async function clickBoard(x, y) {
   await page.mouse.click(box.x + (x * box.width) / 880, box.y + (y * box.height) / 560);
 }
 
+/** 按答案顺序摆件，并逐引脚点击接通（与真人操作同一路径）。 */
+async function placeAndWire(level) {
+  for (const gate of level.netlist.gates) await page.click(`[data-gate="${gate.type}"]`);
+  const placed = (await snapshot()).draft.gates;
+  for (const [index, gate] of level.netlist.gates.entries()) {
+    for (let pin = 0; pin < gate.in.length; pin += 1) {
+      await clickSource(level, placed, gate.in[pin]);
+      const point = gateInputPin(placed[index], pin);
+      await clickBoard(point.x, point.y);
+    }
+  }
+  for (const [index, name] of level.outputs.entries()) {
+    await clickSource(level, placed, level.netlist.outputsMap[name]);
+    const point = socketPoint("output", index);
+    await clickBoard(point.x, point.y);
+  }
+  return { placed };
+}
+
+/** 点一个来源：输入插口或某个拼块的输出。 */
+async function clickSource(level, placed, signal) {
+  if (level.netlist.inputs.includes(signal)) {
+    const point = socketPoint("input", level.netlist.inputs.indexOf(signal));
+    await clickBoard(point.x, point.y);
+    return;
+  }
+  const index = level.netlist.gates.findIndex((item) => item.id === signal);
+  const out = gateOutputPin(placed[index]);
+  await clickBoard(out.x, out.y);
+}
+
 check("页面无 JS 错误", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "));
 const external = requests.filter((url) => !url.startsWith(pathToFileURL(DIST).href));
 check("零外部资源请求", external.length === 0, `${external.length} 条`);
@@ -123,51 +154,30 @@ await page.click("#submit");
 const emptyReadout = await page.locator("#readout").textContent();
 check("空草稿提交给出结构提示", /还没摆|没接/.test(emptyReadout), emptyReadout.slice(0, 40));
 
-// —— 3. 用真实点击照答案拼装 ——
+// —— 3. 拆线入口：接上再点一次同一入口应断开 ——
+await page.click("#view-build");
+await page.click('[data-gate="AND"]');
+const placedOne = (await snapshot()).draft.gates[0];
+await clickBoard(socketPoint("input", 0).x, socketPoint("input", 0).y);
+const pin0 = gateInputPin(placedOne, 0);
+await clickBoard(pin0.x, pin0.y);
+const afterWire = await snapshot();
+check("接上一根线", afterWire.draft.gates[0].in[0] === "i0", JSON.stringify(afterWire.draft.gates[0].in));
+await clickBoard(pin0.x, pin0.y);
+const afterUnwire = await snapshot();
+check("再点同一入口即断开（拆线入口）", afterUnwire.draft.gates[0].in[0] === null, JSON.stringify(afterUnwire.draft.gates[0].in));
+await page.click("#clear");
+
+// —— 4. 草稿笔记持久化（D11）——
+await page.fill("#note", "第 2 关像是一个 或 加一个 非");
+await page.reload({ waitUntil: "load" });
+await page.waitForFunction(() => Boolean(window.__circuitDetective), null, { timeout: 5000 });
+check("笔记按关卡存在 localStorage（刷新后仍在）", (await page.inputValue("#note")).includes("第 2 关像是一个"));
+
+// —— 5. 用真实点击照答案拼装 ——
 const { level } = generateLevel(SEED, { gateBudget: 2, minOptimal: 2 });
-const expected = createDraft(level);
-
-// 先按答案顺序摆件：每点一次按钮会放到下一个空位，并自动把该件设为来源。
-for (const gate of level.netlist.gates) await page.click(`[data-gate="${gate.type}"]`);
-const afterPlace = await snapshot();
-check("零件数正确", afterPlace.draft.gates.length === level.netlist.gates.length, `${afterPlace.draft.gates.length}/${level.netlist.gates.length}`);
-
-const placed = afterPlace.draft.gates;
-const idMap = new Map();
-level.netlist.gates.forEach((gate, index) => idMap.set(gate.id, placed[index].id));
-
-// 逐个引脚点击：先点来源插口，再点目标引脚。
-for (const [index, gate] of level.netlist.gates.entries()) {
-  const targetGate = placed[index];
-  for (let pin = 0; pin < gate.in.length; pin += 1) {
-    const src = idMap.get(gate.in[pin]) ?? gate.in[pin];
-    if (level.netlist.inputs.includes(src)) {
-      const socket = socketPoint("input", level.netlist.inputs.indexOf(src));
-      await clickBoard(socket.x, socket.y);
-    } else {
-      const sourceGate = placed[level.netlist.gates.findIndex((item) => item.id === gate.in[pin])];
-      const out = gateOutputPin(sourceGate);
-      await clickBoard(out.x, out.y);
-    }
-    const pinPoint = gateInputPin(targetGate, pin);
-    await clickBoard(pinPoint.x, pinPoint.y);
-  }
-}
-
-// 输出端口
-for (const [index, name] of level.outputs.entries()) {
-  const src = level.netlist.outputsMap[name];
-  if (level.netlist.inputs.includes(src)) {
-    const socket = socketPoint("input", level.netlist.inputs.indexOf(src));
-    await clickBoard(socket.x, socket.y);
-  } else {
-    const sourceGate = placed[level.netlist.gates.findIndex((item) => item.id === src)];
-    const out = gateOutputPin(sourceGate);
-    await clickBoard(out.x, out.y);
-  }
-  const target = socketPoint("output", index);
-  await clickBoard(target.x, target.y);
-}
+const { placed } = await placeAndWire(level);
+check("零件数正确", placed.length === level.netlist.gates.length, `${placed.length}/${level.netlist.gates.length}`);
 
 const wired = await snapshot();
 const wiredOk = wired.draft.gates.every((gate) => gate.in.every((pin) => typeof pin === "string"));
@@ -178,7 +188,7 @@ check(
   JSON.stringify(wired.draft.outputsMap),
 );
 
-// —— 4. 提交 → 结算 → 逐层点亮 ——
+// —— 6. 提交 → 结算 → 逐层点亮 ——
 await page.click("#submit");
 const settled = await snapshot();
 check("提交后被接受", Boolean(settled.settlement), JSON.stringify(settled.mismatch ?? {}));
@@ -219,11 +229,36 @@ check(
   `${done.reveal.revealed.length}/${level.netlist.gates.length}`,
 );
 
-// —— 5. 错误提交反馈：改一个输出必然失配 ——
+// —— 7. 错误提交的反馈：结构完整但把 1 号灯接错 ——
 await page.click("#prev");
 await page.click("#next");
 const reloaded = await snapshot();
 check("关卡切换后可继续（无残留揭示态）", reloaded.reveal === null && reloaded.settlement === null);
+
+const wrong = await placeAndWire(level);
+// 按真值表挑一个与 1 号灯功能必然不同的来源（生成器允许 OR(i,i)=i 这类等价结构）
+const target0 = level.outputs[0];
+const originalMask = truthTableMasks(level.netlist).masks[target0];
+const candidate = [...level.netlist.inputs, ...level.netlist.gates.map((gate) => gate.id)].find((signal) => {
+  const probe = { ...level.netlist, outputs: [target0], outputsMap: { [target0]: signal } };
+  return truthTableMasks(probe).masks[target0] !== originalMask;
+});
+check("找得到功能不同的来源（测试前提）", typeof candidate === "string", String(candidate));
+await clickSource(level, wrong.placed, candidate);
+await clickBoard(socketPoint("output", 0).x, socketPoint("output", 0).y);
+const tampered = await snapshot();
+check("1 号灯已改接", tampered.draft.outputsMap[target0] !== level.netlist.outputsMap[target0]);
+
+await page.click("#submit");
+const rejected = await snapshot();
+const rejectText = await page.locator("#readout").textContent();
+check("功能不符时提交被拒", rejected.settlement === null, JSON.stringify(rejected.mismatch ?? {}));
+check(
+  "失配反馈含行号 / 开关组合 / 灯号",
+  /第 \d+ 行/.test(rejectText) && /开关 \d{4}/.test(rejectText) && /号灯/.test(rejectText),
+  rejectText.slice(0, 90),
+);
+check("结算面板在未通过时不显示", await page.locator("#settlement").isHidden());
 
 if (shotPath) {
   mkdirSync(dirname(shotPath), { recursive: true });

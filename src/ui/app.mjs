@@ -10,9 +10,11 @@ import {
   clearDraft,
   connectSignal,
   createDraft,
+  disconnectPin,
   gateById,
   moveGate,
   removeGate,
+  setOutput,
   toNetlist,
 } from "../core/editor.mjs";
 import { buildRevealPlan, revealProgress } from "../core/reveal.mjs";
@@ -130,7 +132,7 @@ function placePart(type) {
   state.source = result.id;
   setView("build");
   setStatus(state.copy.statusBuilding);
-  setReadout("再点一个要接的位置（拼块入口或灯）。");
+  setReadout(state.copy.readout.pickTarget);
   render();
   updatePanel();
 }
@@ -170,11 +172,7 @@ function loadLevel(seedText) {
   el("settlement").hidden = true;
   setView("probe");
   setStatus(state.copy.statusReady);
-  setReadout(
-    index && index <= 3
-      ? "先拨开关试试，看清四个灯怎么跟着变，再切到「拼装」把盒子拼出来。"
-      : "先拨开关试探，再切到「拼装」把盒子拼出来。",
-  );
+  setReadout(index && index <= 3 ? state.copy.readout.introEarly : state.copy.readout.introFull);
   evaluate();
   return true;
 }
@@ -319,18 +317,40 @@ function onCanvasPointerDown(event) {
 function handleConnect(hit) {
   if (hit.type === "socket" && hit.side === "input") {
     state.source = hit.signal;
-    setReadout(`来源已选：开关 ${hit.signal}。再点一个要接的位置。`);
+    setReadout(`${state.copy.readout.pickSource}（已选：开关 ${hit.signal}）`);
     render();
     return;
   }
   if (hit.type === "socket" && hit.side === "gate") {
     state.source = hit.gate;
-    setReadout("再点一个要接的位置（拼块入口或灯）。");
+    setReadout(state.copy.readout.pickTarget);
     render();
     return;
   }
+  // 没有待接来源时，点一个已经接好的入口 = 拆掉这根线（否则玩家只能删掉整个零件）。
+  if (!state.source && hit.type === "pin") {
+    const gate = hit.gate ? gateById(state.draft, hit.gate) : null;
+    const wired =
+      hit.target === "output"
+        ? state.draft.outputsMap[hit.output] !== null
+        : Boolean(gate && gate.in[hit.pin] !== null);
+    if (wired) {
+      const result =
+        hit.target === "output"
+          ? setOutput(state.draft, hit.output, null)
+          : disconnectPin(state.draft, hit.gate, hit.pin);
+      if (!result.ok) {
+        setReadout(result.errors[0].message, "bad");
+        return;
+      }
+      setReadout(state.copy.readout.disconnected);
+      render();
+      updatePanel();
+      return;
+    }
+  }
   if (!state.source) {
-    setReadout("先点一个来源：开关或拼块的输出。");
+    setReadout(state.copy.readout.pickSource);
     return;
   }
   if (hit.type === "pin" && hit.target === "output") {
@@ -341,7 +361,7 @@ function handleConnect(hit) {
     reportEdit(connectSignal(state.draft, state.source, { gate: hit.gate, pin: hit.pin }));
     return;
   }
-  setReadout("这里接不上：点拼块左边的小圆点或右边的灯。");
+  setReadout(state.copy.readout.noTarget);
 }
 
 function reportEdit(result) {
@@ -350,7 +370,7 @@ function reportEdit(result) {
     return;
   }
   state.source = null;
-  setReadout("接好了。没接的入口会画虚线框。");
+  setReadout(state.copy.readout.wired);
   render();
   updatePanel();
 }
@@ -608,7 +628,7 @@ function goCampaign(index) {
 }
 
 el("share").addEventListener("click", () => {
-  setReadout("分享短码在 M4 接入；当前探测序列可按 seed + 拨动顺序复算。");
+  setReadout(state.copy.readout.summary(state.probes));
 });
 
 el("note").addEventListener("input", () => writeNote(el("note").value));

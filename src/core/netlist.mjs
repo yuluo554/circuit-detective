@@ -3,17 +3,9 @@
 
 export const GATE_TYPES = Object.freeze(["NOT", "AND", "OR"]);
 export const GATE_ARITY = Object.freeze({ NOT: 1, AND: 2, OR: 2 });
-export const DEFAULT_INPUT_COUNT = 4;
-export const DEFAULT_OUTPUT_COUNT = 4;
 
 export function gateArity(type) {
   return GATE_ARITY[type] ?? 0;
-}
-
-export function signalIds(netlist) {
-  const ids = [...netlist.inputs];
-  for (const gate of netlist.gates) ids.push(gate.id);
-  return ids;
 }
 
 export function gateMap(netlist) {

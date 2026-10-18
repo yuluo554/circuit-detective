@@ -41,6 +41,13 @@ npm run build         # 产出 dist/index.html（单文件、零外链）
 npm run dev           # 本地预览 http://127.0.0.1:4173/
 ```
 
+可选的两条浏览器级校验（本机需有 Chromium；`verify:engines` 还需要 Firefox，缺则 SKIP）：
+
+```bash
+npm run smoke          # headless 真实点击：拨杆 / 拼装 / 接线 / 拆线 / 提交 / 结算 / 揭示
+npm run verify:engines # 跨引擎一致性：Node + Chromium + Firefox 关卡 JSON 逐字节相同
+```
+
 直接用浏览器打开 `dist/index.html` 也可以（`file://` 可用，页面零网络请求）。
 
 **零依赖**：`dependencies` 与 `devDependencies` 均为空，`git clone` 后无需 `npm install`。
@@ -61,12 +68,9 @@ npm run dev           # 本地预览 http://127.0.0.1:4173/
 
 耗时只报告，不参与判定（避免机器性能导致红绿抖动）。
 
-浏览器端到端冒烟（可选，需要本机有 Chromium；**不是项目依赖**）：
-
-```bash
-npm run build
-node tools/smoke.mjs      # 真实点击：拨杆 / 拼装 / 接线 / 提交 / 结算 / 逐层点亮
-```
+跨引擎一致（M2 DoD：≥2 引擎哈希相同）由 `npm run verify:engines` 单独跑：
+Node + Chromium + Firefox 各生成同一批 seed 的关卡 JSON，逐字节比对（实测 200 seed 差异 0）。
+Playwright 与浏览器**都不是项目依赖**：脚本按本机全局路径动态查找，找不到就 SKIP。
 
 ## 确定性口径
 

@@ -1,14 +1,13 @@
 // 画布几何：把"信号 / 引脚 / 拼块"映射成可点击的坐标。
 // 纯函数，不碰 DOM；命中判定与渲染共用同一份坐标，避免"看着能点、实际点不到"。
 
-import { GATE_TYPES, gateArity } from "../core/netlist.mjs";
+import { gateArity } from "../core/netlist.mjs";
 import { GRID } from "../core/editor.mjs";
 import { buildRevealPlan } from "../core/reveal.mjs";
 
 export const BOARD = Object.freeze({ width: 880, height: 560 });
 export const GATE_SIZE = Object.freeze({ w: 56, h: 52 });
 export const PIN_HIT_RADIUS = 10;
-export const SOCKET_RADIUS = 11;
 
 // 相邻拼块中心距必须大于「拼块宽 + 2×命中半径」，否则一个引脚会抢走另一个引脚的点击。
 export const MIN_GATE_STEP_X = GATE_SIZE.w + PIN_HIT_RADIUS * 2 + 4;
@@ -129,14 +128,6 @@ export function freeSlot(draft, index = draft.gates.length) {
   return { x: WORK_AREA.x0, y: WORK_AREA.y0 };
 }
 
-/** 把任意坐标夹到工作区内的合法网格点（拖动与方向键共用）。 */
-export function snapIntoWorkArea(position) {
-  const snapped = {
-    x: Math.round(position.x / GRID) * GRID,
-    y: Math.round(position.y / GRID) * GRID,
-  };
-  return clampToWorkArea(snapped);
-}
 
 /**
  * 自动布局：把任意网表（隐藏答案或提交草稿）按揭示层级排成左→右。
@@ -176,6 +167,3 @@ export function autoLayout(netlist) {
   return { gates, positions, layers: plan.layers, layerById: plan.layerById, order: plan.order };
 }
 
-export function gateTypes() {
-  return GATE_TYPES;
-}

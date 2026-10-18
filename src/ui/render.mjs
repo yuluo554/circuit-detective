@@ -2,16 +2,7 @@
 // 渲染层不参与任何判定：只消费 sim 的输出、揭示计划与草稿数据。
 
 import { gateArity } from "../core/netlist.mjs";
-import {
-  BOARD,
-  GATE_SIZE,
-  SOCKET_GAP,
-  SOCKET_Y0,
-  gateInputPin,
-  gateOutputPin,
-  gateRect,
-  socketPoint,
-} from "./layout.mjs";
+import { SOCKET_GAP, SOCKET_Y0, gateInputPin, gateOutputPin, gateRect, socketPoint } from "./layout.mjs";
 
 const BOX = { x: 260, y: 70, w: 360, h: 420 };
 
@@ -348,5 +339,3 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-export const BOARD_SIZE = BOARD;
-export { GATE_SIZE, SOCKET_GAP, SOCKET_Y0 };

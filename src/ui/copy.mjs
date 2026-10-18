@@ -13,11 +13,9 @@ const BASIC = Object.freeze({
   probesLabel: "试探次数",
   levelLabel: "关卡",
   submissionLabel: "提交次数",
-  lampsLabel: "四盏灯",
   hintProbe: "点左边的开关，观察右边的灯。<br>同一个组合反复拨动不计次。",
   hintBuild: "先点一个插口作为来源，再点要接的位置。<br>拼块可以拖动；选中后按方向键微调，按 Delete 删掉。",
   statusReady: "黑盒已就绪",
-  statusProbing: "记录中",
   statusBuilding: "拼装中",
   statusReveal: "正在揭晓",
   statusSettled: "已结算",
@@ -37,15 +35,11 @@ const BASIC = Object.freeze({
     OR: "∨ 两个入口",
   }),
   part: Object.freeze({ NOT: "¬", AND: "∧", OR: "∨" }),
-  deleteKey: "Delete 删掉",
   noteLabel: "草稿笔记（只存在本机）",
   notePlaceholder: "写下你的猜测……",
   empty: "先摆一个拼块",
-  outputSocket: "灯",
-  inputSocket: "开关",
   revealLayer: (index, total) => `第 ${index} / ${total} 层亮起`,
   revealDone: "全部亮起",
-  unsettled: "拨过开关之后就能提交。",
   mismatch: (mismatch) =>
     `第 ${mismatch.row + 1} 行 · 开关 ${mismatch.input.join("")} · ${mismatch.outputLabel} · 应亮 ${mismatch.expected} · 实际 ${mismatch.actual}`,
   invalidDraft: "还差一点：",
@@ -60,6 +54,16 @@ const BASIC = Object.freeze({
   }),
   diffSuffix: "个",
   nextHint: "点「下一关」继续。",
+  readout: Object.freeze({
+    pickSource: "先点一个来源：开关或拼块的输出。",
+    pickTarget: "再点一个要接的位置（拼块入口或灯）。",
+    wired: "接好了。没接的入口会画虚线框。",
+    disconnected: "已断开这根线。再点来源可以重新接。",
+    noTarget: "这里接不上：点拼块左边的小圆点或右边的灯。",
+    introEarly: "先拨开关试试，看清四个灯怎么跟着变，再切到「拼装」把盒子拼出来。",
+    introFull: "先拨开关试探，再切到「拼装」把盒子拼出来。",
+    summary: (probes) => `已试探 ${probes} 次。`,
+  }),
 });
 
 const FULL = Object.freeze({
@@ -74,9 +78,6 @@ const FULL = Object.freeze({
     OR: "OR 或门",
   }),
   part: Object.freeze({ NOT: "NOT", AND: "AND", OR: "OR" }),
-  deleteKey: "Delete 删掉",
-  outputSocket: "输出",
-  inputSocket: "输入",
 });
 
 export const EARLY_LEVEL_LIMIT = 3;

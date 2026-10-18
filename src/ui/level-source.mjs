@@ -2,8 +2,6 @@
 // 战役模式 = 固定种子序列（`campaign/<n>`），前 3 关用更低门数预算（plan/06 风险表的缓解项）。
 // 这里只做字符串处理；今日题读一次本地日期（D3 已知局限），不在 core 里读时钟。
 
-import { LEVEL_FORMAT, LEVEL_VERSION } from "../core/generator.mjs";
-
 export const DEFAULT_SEED = "2026-10-19";
 export const CAMPAIGN_PREFIX = "campaign/";
 export const CAMPAIGN_LAST = 12;
@@ -47,10 +45,3 @@ export function seedFromLocation(location) {
   return decoded.length > 0 ? decoded : DEFAULT_SEED;
 }
 
-export function levelHeader(level) {
-  return `${level.format} v${level.version}`;
-}
-
-export function isSupportedLevel(level) {
-  return level?.format === LEVEL_FORMAT && level?.version === LEVEL_VERSION;
-}

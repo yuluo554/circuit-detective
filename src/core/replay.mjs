@@ -172,13 +172,13 @@ export function decodeRecord(code) {
     const arity = gateArity(raw.type);
     const pins = [signals[raw.in0]];
     if (arity === 2) pins.push(signals[raw.in1]);
-    if (pins.some((pin) => pin === undefined)) throw new Error(`短码损坏：第 ${index + 1} 个门引用了不存在的信号`);
+    if (pins.some((pin) => typeof pin !== "string")) throw new Error(`短码损坏：第 ${index + 1} 个门引用了不存在的信号`);
     netlist.gates.push({ id, type: raw.type, in: pins });
     signals.push(id);
   });
   outputs.forEach((name, index) => {
     const src = signals[outputIndexes[index]];
-    if (src === undefined) throw new Error(`短码损坏：输出 ${name} 引用了不存在的信号`);
+    if (typeof src !== "string") throw new Error(`短码损坏：输出 ${name} 引用了不存在的信号`);
     netlist.outputsMap[name] = src;
   });
 
