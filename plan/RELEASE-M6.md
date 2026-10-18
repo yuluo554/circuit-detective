@@ -163,3 +163,30 @@ PASS 9 / FAIL 0 / SKIP 0   （rc=0）
 | **K37** | 版本号单一来源 = `package.json` 的 `version` 与 `src/core/version.mjs` 的 `VERSION`，必须一致；tag 名 = `v` + 该版本 | `tools/check-release.mjs` 的 `VERSION_SINGLE_SOURCE` / `TAG_PRESENT` |
 | **K38** | `plan/RELEASE-M6.md` 必须两栏齐备（`## 一、tag 前事实` / `## 二、tag 后追加`）且在 tag 前入库；第二栏 tag 前留空 | `tools/check-release.mjs` 的 `RELEASE_DOC` |
 | **K39** | 发布留档路径由 `RELEASE_DOC_PATH` 决定（默认 `plan/RELEASE-M6.md`）；该变量是**测试用 seam**，让"缺档报 SKIP / 报 FAIL"两条模式语义在留档存在之后仍可被构造和断言 | `tools/check-release.mjs` / `tests/release-gate.test.mjs` |
+
+## 四、阶段 7 出口门覆盖对账（补记 · 复盘轮追加）
+
+> **为什么补这一节**：复盘时对照 `ai-tool-project-sprint` 阶段 7 出口门逐条清点，发现本项目
+> `tools/check-release.mjs` 只覆盖其中 9 条，**其余三十几条没有一条被声明为"不适用"——它们是静默消失的**。
+> 更糟的是下面标"实现"的四条**当时从未被任何门覆盖**（本轮逐条手查才补上，全部通过，但
+> **没有任何东西保证它们通过**）。本节把"缺的那几条"显式登记，三态不许留空。
+> 本节的补记属 `plan/` 文档面，tag 之后追加，不改动 `v0.1.0` 附件（附件 sha256 仍为 §1.3 的值）。
+
+| 阶段 7 出口门 | 状态 | 证据 / 不适用理由 |
+| --- | --- | --- |
+| 发布物本体已验（真下载 + 中立目录） | 实现 | `gh release download` 到 `/tmp/rel-verify/`，sha256 与 §1.3 逐一相同 |
+| 附件与 tag 树逐字节同源 | 实现 | `git clone --no-local --branch v0.1.0` → `node tools/build.mjs` → 与下载件 `cmp` 逐字节一致 |
+| 源码包要自足（`MANIFEST.in` 白名单） | 不适用 | 附件 = 构建产物本身（D13），本版不发源码包；源码由 GitHub 自动 zipball 提供，不作交付物 |
+| 入仓工具在无 `.git` 树里也能跑 | 不适用 | 本仓无发布期入仓工具（无打包器、无历史扫描脚本）；`tools/` 均为开发期脚本 |
+| README 提到的附件名必须真在 Release 里 | 实现 | README 的 Release 链接 + `gh release view --json assets` 两种形态（`circuit-detective-0.1.0.html` / `verify-sample.txt`）核对过名实 |
+| 附件与校验和 / 复核三步 | 部分实现 | 已做"真下载 → sha256 复算 → 与留档件比对"；**未**上传 `SHA256SUMS` 伴随文件（K36 口径为 sha256 写进 Release 正文） |
+| 已发布窗口关闭后的缺陷处置 | 实现 | 本版无发布后缺陷；tag 前后只追加文档面提交（§2.4） |
+| DoD 打勾只能在事实落地后 | 实现 | §1.4 三件套 ①② 在 tag 前为 ⬜，落地后翻 ✅ 并指向 §二 |
+| tag 之后只允许文档面提交 | 实现 | `git diff --name-only v0.1.0..HEAD` 只含 `plan/`（本次复盘提交亦同） |
+| annotated tag 两端一致 = **对象哈希**一致 | 实现（本轮补查） | 本地 `76b56283d167…` == 远端 `git/ref/tags/v0.1.0` 的 `object.sha` |
+| push 数 = run 数对账 | 实现（本轮补查） | 6 次 push ↔ 6 条 run（含 tag run），按 `event/headBranch/headSha/conclusion` 逐条配对，全 success |
+| 脱敏：提交身份 + **tagger 邮箱** | 实现（本轮补查） | `git log --format='%ae'` 去重 + tag 对象 tagger，**全部为 GitHub noreply 邮箱** |
+| 每条已交付命令都有离线 CI 冒烟 | 实现 | CI 步骤：fixture `--check` / `npm test` / `npm run verify` / `npm run build` / `check-dist`；`smoke` 与 `verify:engines` 刻意不进 CI（需仓外 playwright 缓存，已在 `plan/05` §八 声明） |
+| 多平台冻结产物原生构建 + 原生冒烟 | 不适用 | 交付物是浏览器单文件，平台无关；CI 矩阵覆盖 Windows/Ubuntu × Node 22/24 |
+| 一致性门（题面/发布物/README 的名字与版本） | 实现 | `VERSION_SINGLE_SOURCE` + `readme-gate.test.mjs` + `check-release.mjs` 的 `DOCS_PRESENT` |
+| **方法论装订与布局门（新增，见 `plan/HANDOFF-M6.md` §复盘发现）** | **不适用（本轮登记时点）** | 本项目 M0–M6 **从未装订**（无 `AGENTS.md`、无布局门）；**下一棒第一动作 = 补装订**，见 `plan/HANDOFF-M6.md` §4 第 0 条 |
