@@ -20,7 +20,7 @@
 **本轮实测（2026-10-18，Windows + Node v24.15.0）**
 
 ```
-npm test          → tests 55 / pass 55 / fail 0
+npm test          → tests 69 / pass 69 / fail 0
 npm run verify    → 5 段全 PASS，rc=0
                     sim.cross: 1000 fixtures / 9540 comparisons / 0 differences
                     level.generation: 10000 seeds / failed 0 / ambiguous 0 / recheck 100%
@@ -147,6 +147,9 @@ node tools/gen-fixtures.mjs --check
 node tools/check-release.mjs
 node tools/check-release.mjs --pre-tag
 npm run dev            # http://127.0.0.1:4173/
+node tools/gen-level.mjs --seed 2026-10-19
+node tools/gen-level.mjs --seed 7 --count 3
+node tools/gen-level.mjs --help     # 用法；缺参数 / 未知参数 exit 2
 ```
 
 ## 7. 启动提示词（下一棒）
