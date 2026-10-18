@@ -25,8 +25,9 @@ test("生成的关卡：求解器复核一致、无 X、可通过网表校验", 
 
 test("难度分档由求解器给出的最少门数决定", () => {
   assert.equal(difficultyOf(2), "easy");
-  assert.equal(difficultyOf(4), "easy");
-  assert.equal(difficultyOf(5), "normal");
+  assert.equal(difficultyOf(3), "normal");
+  assert.equal(difficultyOf(4), "normal");
+  assert.equal(difficultyOf(5), "hard");
   assert.equal(difficultyOf(9), "hard");
 });
 

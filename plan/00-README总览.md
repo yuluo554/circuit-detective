@@ -85,13 +85,13 @@
 
 | 能力名词 | 哪条交付态命令产出它 | 哪条基准/测试断言它 |
 | --- | --- | --- |
-| 最少门数 | `npm run verify -- --report` 的 `solver.optimal` 与游戏结算面板 | `verify` 的求解器复核用例（通过率 100%） |
-| 确定性关卡 | `node tools/gen-levels.mjs --seed <n>` 输出的关卡 JSON | 10k seed 的 JSON 哈希一致断言 |
-| 探测序列回放 | 短码 `#r=<code>` 解码后重演 | 跨实例回放一致率 100% |
-| 门电路逐层点亮 | 提交后的揭示视图（Canvas 逐层点亮） | 揭示层级序列严格递增的渲染断言 |
-| 三值仿真 | `npm run verify` 的交叉验证段 | 与独立第二实现 0 差异 |
-| 零外链构建 | `npm run build` 产出 `dist/index.html` | `verify` 的静态扫描（外链数 = 0） |
-| 探测次数计分 | 结算面板的 `probes` 字段 | 探测序列重算一致 + 重复拨动不计数用例 |
+| 最少门数 | `npm run verify -- --json` 的 `level.generation` 段；结算面板（⬜ M3） | `solver.test.mjs` + `level.generation` 复核通过率 100% |
+| 确定性关卡 | `node tools/gen-level.mjs --seed <n>` 输出的关卡 JSON | `generator.test.mjs` 同 seed 逐字节相同；`level.generation` 10k |
+| 探测序列回放 | `npm run verify` 的 `replay.crossInstance` 段；`#r=<code>`（⬜ M4） | 跨进程回放一致率 100%；`replay.test.mjs` 篡改检测 |
+| 门电路逐层点亮 | 提交后的揭示视图（⬜ M3） | 揭示层级序列严格递增的渲染断言（⬜ M3） |
+| 三值仿真 | `npm run verify` 的 `sim.cross` 段 | 与独立第二实现 0 差异 |
+| 零外链构建 | `npm run build` → `node tools/check-dist.mjs` | `build.static` 段外链数 = 0 |
+| 探测次数计分 | 界面试探次数（已接通）；结算面板字段（⬜ M3） | 浏览器冒烟 0→1→2→3；重算一致性（⬜ M3） |
 
 ## 五、提交材料实物表（承诺项 → 应存在文件 → 里程碑 → 核对命令）
 

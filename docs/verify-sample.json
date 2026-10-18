@@ -36,8 +36,8 @@
         "solverRecheckTotal": 10000,
         "solverRecheckMismatch": 0,
         "solverRecheckPassRate": 1,
-        "p50ms": 0.165,
-        "p99ms": 0.681,
+        "p50ms": 0.175,
+        "p99ms": 0.744,
         "optimalHistogram": {
           "2": 4097,
           "3": 3004,
@@ -67,7 +67,7 @@
       "pass": true,
       "detail": {
         "bytes": 38370,
-        "gzipBytes": 13359,
+        "gzipBytes": 13358,
         "externalLinks": 0,
         "missingBones": []
       },

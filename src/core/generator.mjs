@@ -13,8 +13,8 @@ export const MAX_REDRAWS = 64;
 export const GATE_BASIS = Object.freeze(["NOT", "AND", "OR"]);
 
 const DIFFICULTY_BANDS = Object.freeze([
-  { name: "easy", maxOptimal: 4 },
-  { name: "normal", maxOptimal: 7 },
+  { name: "easy", maxOptimal: 2 },
+  { name: "normal", maxOptimal: 4 },
   { name: "hard", maxOptimal: 12 },
 ]);
 

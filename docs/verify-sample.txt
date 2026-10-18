@@ -13,8 +13,8 @@ PASS  level.generation
       solverRecheckTotal: 10000
       solverRecheckMismatch: 0
       solverRecheckPassRate: 1
-      p50ms: 0.165
-      p99ms: 0.681
+      p50ms: 0.175
+      p99ms: 0.744
       optimalHistogram: {"2":4097,"3":3004,"4":1665,"5":768,"6":321,"7":106,"8":39}
 PASS  replay.crossInstance
       cases: 3
@@ -22,7 +22,7 @@ PASS  replay.crossInstance
       consistency: 1
 PASS  build.static
       bytes: 38370
-      gzipBytes: 13359
+      gzipBytes: 13358
       externalLinks: 0
       missingBones: []
 ================================================
