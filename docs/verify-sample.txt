@@ -13,16 +13,38 @@ PASS  level.generation
       solverRecheckTotal: 10000
       solverRecheckMismatch: 0
       solverRecheckPassRate: 1
-      p50ms: 0.175
-      p99ms: 0.744
-      optimalHistogram: {"2":4097,"3":3004,"4":1665,"5":768,"6":321,"7":106,"8":39}
+      p50ms: 0.172
+      p99ms: 0.685
+      optimalHistogram: {"2":3945,"3":2979,"4":1701,"5":850,"6":368,"7":115,"8":42}
 PASS  replay.crossInstance
       cases: 3
       mismatches: 0
       consistency: 1
+PASS  settlement.closure
+      cases: 400
+      editorFailures: 0
+      settlementMismatch: 0
+      differenceFailures: 0
+      mismatchBlind: 0
+      unreachableOptimal: 0
+      probeMismatch: 0
+      probeSequences: 3
+PASS  reveal.order
+      seeds: 500
+      nonIncreasing: 0
+      emptyLayer: 0
+      uncovered: 0
+PASS  copy.terms
+      hits: 0
+      positiveControl: true
+      earlyLevels: 3
+PASS  campaign.early
+      levels: 3
+      failures: 0
+      optimal: [2,2,2]
 PASS  build.static
-      bytes: 38370
-      gzipBytes: 13358
+      bytes: 92551
+      gzipBytes: 28271
       externalLinks: 0
       missingBones: []
 ================================================

@@ -1,9 +1,35 @@
 // 关卡选择：日期 → 种子；URL hash 里的 seed 优先于默认 seed。
-// 这里只做字符串处理，不读时钟参与关卡生成（今日题除外，见 D3）。
+// 战役模式 = 固定种子序列（`campaign/<n>`），前 3 关用更低门数预算（plan/06 风险表的缓解项）。
+// 这里只做字符串处理；今日题读一次本地日期（D3 已知局限），不在 core 里读时钟。
 
 import { LEVEL_FORMAT, LEVEL_VERSION } from "../core/generator.mjs";
 
 export const DEFAULT_SEED = "2026-10-19";
+export const CAMPAIGN_PREFIX = "campaign/";
+export const CAMPAIGN_LAST = 12;
+
+/** 战役第 n 关的种子文案（n 从 1 开始）。 */
+export function campaignSeed(index) {
+  return `${CAMPAIGN_PREFIX}${index}`;
+}
+
+/**
+ * 前 3 关的生成参数：门数预算固定为 2，最优门数固定为 2（`easy`）。
+ * 第 4–6 关放宽到 4，第 7 关起回到默认预算；
+ * "三种零件"的正式名称在第 4 关出现（D1 / Q3）。
+ */
+export function campaignOptions(index) {
+  if (index <= 3) return { gateBudget: 2, minOptimal: 2 };
+  if (index <= 6) return { gateBudget: 4, minOptimal: 2 };
+  return {};
+}
+
+export function campaignIndexFromSeed(seed) {
+  const text = String(seed ?? "");
+  if (!text.startsWith(CAMPAIGN_PREFIX)) return null;
+  const index = Number(text.slice(CAMPAIGN_PREFIX.length));
+  return Number.isInteger(index) && index >= 1 && index <= CAMPAIGN_LAST ? index : null;
+}
 
 /** 由日期字符串生成每日题的 seed 文案（真正的哈希在 rng.normalizeSeed 里做）。 */
 export function seedFromDate(date) {

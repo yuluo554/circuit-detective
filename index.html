@@ -29,16 +29,9 @@
     min-height: 100%;
     padding: 26px 18px 40px;
   }
-  header { width: min(960px, 100%); }
-  .brand {
-    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
-  }
-  h1 {
-    font-size: clamp(20px, 3.2vw, 30px);
-    letter-spacing: 0.06em;
-    margin: 0;
-    font-weight: 600;
-  }
+  header { width: min(1080px, 100%); }
+  .brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1 { font-size: clamp(20px, 3.2vw, 30px); letter-spacing: 0.06em; margin: 0; font-weight: 600; }
   .sub { color: var(--dim); font-size: 13px; letter-spacing: 0.04em; }
   .status {
     margin-left: auto;
@@ -49,13 +42,13 @@
     border-radius: 999px;
   }
   main {
-    width: min(960px, 100%);
+    width: min(1080px, 100%);
     display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.85fr);
+    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
     gap: 18px;
     margin-top: 18px;
   }
-  @media (max-width: 780px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
   .stage {
     background: linear-gradient(180deg, #1b1f27, #14171d);
     border: 1px solid var(--line);
@@ -63,8 +56,9 @@
     padding: 10px;
     position: relative;
     overflow: hidden;
+    align-self: start;
   }
-  canvas { width: 100%; height: auto; display: block; border-radius: 10px; touch-action: manipulation; }
+  canvas { width: 100%; height: auto; display: block; border-radius: 10px; touch-action: none; }
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -72,14 +66,14 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
   .metric { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .metric .label { color: var(--dim); font-size: 12px; letter-spacing: 0.06em; }
   .metric .value { font-size: 18px; font-variant-numeric: tabular-nums; }
   .hint { color: var(--dim); font-size: 12px; line-height: 1.7; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  button, input {
+  button, input, textarea {
     font-family: inherit;
     font-size: 13px;
     color: var(--ink);
@@ -92,15 +86,42 @@
   button:hover:not(:disabled) { border-color: var(--accent); }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
   button.primary { background: #2a2418; border-color: #5d4a24; color: var(--accent); }
+  button.tab { flex: 1; color: var(--dim); }
+  button.tab.active { color: var(--accent); border-color: #5d4a24; background: #211d15; }
   input { width: 100%; }
+  textarea {
+    width: 100%;
+    min-height: 58px;
+    resize: vertical;
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .palette button { padding: 10px 6px; font-size: 12px; }
+  .settlement {
+    border: 1px solid #5d4a24;
+    background: #1c1912;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .settlement[hidden] { display: none; }
+  .settlement .head { color: var(--accent); font-size: 13px; letter-spacing: 0.04em; }
+  .settlement .metric .value { font-size: 16px; }
+  .settlement .basis { color: var(--dim); font-size: 11px; line-height: 1.6; }
   .readout {
     font-size: 12px;
     color: var(--dim);
     border-top: 1px dashed var(--line);
     padding-top: 10px;
     line-height: 1.8;
-    word-break: break-all;
+    word-break: break-word;
   }
+  .readout.bad { color: var(--warn); }
+  .readout.good { color: var(--ok); }
   .lamps { display: flex; gap: 8px; flex-wrap: wrap; }
   .lamp-chip {
     font-size: 11px; color: var(--dim);
@@ -108,7 +129,7 @@
   }
   .lamp-chip.on { color: #161a12; background: var(--ok); border-color: var(--ok); }
   .lamp-chip.x { color: #1a1426; background: var(--x); border-color: var(--x); }
-  footer { width: min(960px, 100%); color: var(--dim); font-size: 11px; margin-top: 22px; line-height: 1.8; }
+  footer { width: min(1080px, 100%); color: var(--dim); font-size: 11px; margin-top: 22px; line-height: 1.8; }
   .tag { color: var(--accent); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
@@ -117,41 +138,69 @@
 <header>
   <div class="brand">
     <h1>黑盒电路侦探</h1>
-    <span class="sub">拨开关 · 看灯 · 猜出盒子里最少用了几样东西</span>
+    <span class="sub" id="subtitle"></span>
     <span class="status" id="status">加载中</span>
   </div>
 </header>
 
 <main>
   <section class="stage">
-    <canvas id="board" width="880" height="560" aria-label="黑盒：左侧四个开关，右侧四个指示灯"></canvas>
+    <canvas id="board" width="880" height="560" tabindex="0" aria-label="黑盒工作台：左侧四个开关，右侧四个指示灯"></canvas>
   </section>
 
   <aside class="panel">
-    <div class="metric"><span class="label">试探次数</span><span class="value" id="probes">0</span></div>
-    <div class="metric"><span class="label">关卡</span><span class="value" id="level-id">—</span></div>
+    <div class="row">
+      <button id="view-probe" class="tab active" data-view="probe"></button>
+      <button id="view-build" class="tab" data-view="build"></button>
+    </div>
+
+    <div class="metric"><span class="label" id="label-probes"></span><span class="value" id="probes">0</span></div>
+    <div class="metric"><span class="label" id="label-level"></span><span class="value" id="level-id">—</span></div>
+    <div class="metric"><span class="label" id="label-submissions"></span><span class="value" id="submissions">0</span></div>
     <div class="lamps" id="lamps"></div>
-    <div class="hint" id="hint">
-      点左边的开关，观察右边的灯。<br>
-      同一个组合反复拨动不计次。
+    <div class="hint" id="hint"></div>
+
+    <div class="palette" id="palette"></div>
+    <div class="row">
+      <button id="clear"></button>
+      <button id="delete"></button>
+    </div>
+
+    <div class="row">
+      <input id="seed" inputmode="numeric" aria-label="关卡种子">
+      <button id="load"></button>
     </div>
     <div class="row">
-      <input id="seed" inputmode="numeric" placeholder="输入种子，例如 2026-10-19" aria-label="关卡种子">
-      <button id="load">换一关</button>
+      <button id="prev"></button>
+      <button id="next"></button>
+      <button id="daily"></button>
     </div>
     <div class="row">
-      <button id="daily">今日题</button>
-      <button id="share" disabled>复制分享码</button>
+      <button id="submit" class="primary"></button>
     </div>
+
+    <div class="settlement" id="settlement" hidden>
+      <span class="head" id="settlement-head"></span>
+      <div class="metric"><span class="label" id="settle-your-label"></span><span class="value" id="settle-your">—</span></div>
+      <div class="metric"><span class="label" id="settle-optimal-label"></span><span class="value" id="settle-optimal">—</span></div>
+      <div class="metric"><span class="label" id="settle-diff-label"></span><span class="value" id="settle-diff">—</span></div>
+      <div class="metric"><span class="label" id="settle-probes-label"></span><span class="value" id="settle-probes">—</span></div>
+      <span class="basis" id="settle-basis"></span>
+    </div>
+
+    <div class="readout" id="readout"></div>
+
     <div class="row">
-      <button id="submit" class="primary" disabled>提交答案（M3）</button>
+      <button id="share" disabled></button>
     </div>
-    <div class="readout" id="readout">骨架阶段：拨杆与灯已接通确定性仿真核；门编辑器与提交判定在 M3 接入。</div>
+
+    <label class="hint" for="note" id="note-label"></label>
+    <textarea id="note"></textarea>
   </aside>
 </main>
 
 <footer>
-  <span class="tag">确定性口径</span>：同一关卡在任何浏览器给出同一组灯；关卡与探测序列可复算。
+  <span class="tag">确定性口径</span>：同一关卡在任何浏览器给出同一组灯；关卡与试探序列可复算。
   零上传、零遥测、零外链。
 </footer>
 

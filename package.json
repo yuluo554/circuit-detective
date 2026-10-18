@@ -12,9 +12,10 @@
   "scripts": {
     "dev": "node tools/serve.mjs",
     "build": "node tools/build.mjs",
-    "test": "node --test tests/rng.test.mjs tests/netlist.test.mjs tests/sim.test.mjs tests/solver.test.mjs tests/generator.test.mjs tests/sim-cross.test.mjs tests/replay.test.mjs tests/build.test.mjs tests/dist-scan.test.mjs tests/release-gate.test.mjs tests/cli.test.mjs tests/readme-gate.test.mjs tests/test-manifest.test.mjs",
+    "test": "node --test tests/rng.test.mjs tests/netlist.test.mjs tests/sim.test.mjs tests/solver.test.mjs tests/generator.test.mjs tests/sim-cross.test.mjs tests/replay.test.mjs tests/editor.test.mjs tests/judge.test.mjs tests/reveal.test.mjs tests/copy-gate.test.mjs tests/ui-wiring.test.mjs tests/build.test.mjs tests/dist-scan.test.mjs tests/release-gate.test.mjs tests/cli.test.mjs tests/readme-gate.test.mjs tests/test-manifest.test.mjs",
     "verify": "node tools/verify.mjs",
     "verify:core": "node tools/verify.mjs --require sim.cross,fixtures.bytes,level.generation,replay.crossInstance",
+    "smoke": "node tools/smoke.mjs",
     "fixtures": "node tools/gen-fixtures.mjs",
     "fixtures:check": "node tools/gen-fixtures.mjs --check"
   },

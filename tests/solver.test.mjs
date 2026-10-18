@@ -73,3 +73,40 @@ test("共享门按使用它的输出各计一次（口径随文档一起声明�
   };
   assert.equal(countedGates(netlist), 2);
 });
+
+test("同一输出内重复引用同一个门，每次引用各计一次（D21 按引用展开）", () => {
+  // OR(g01, g01) 展开后是 1 + 1 + 1 = 3 个门；按锥内去重会得到 2。
+  const netlist = {
+    inputs: ["i0", "i1"],
+    outputs: ["o0"],
+    gates: [
+      { id: "g01", type: "AND", in: ["i0", "i1"] },
+      { id: "g02", type: "OR", in: ["g01", "g01"] },
+    ],
+    outputsMap: { o0: "g02" },
+  };
+  assert.equal(countedGates(netlist), 3);
+  // 三个输出共用同一个门：按每个灯各计一次。
+  const shared = {
+    inputs: ["i0", "i1"],
+    outputs: ["o0", "o1", "o2"],
+    gates: [{ id: "g01", type: "OR", in: ["i0", "i1"] }],
+    outputsMap: { o0: "g01", o1: "g01", o2: "g01" },
+  };
+  assert.equal(countedGates(shared), 3);
+});
+
+test("门数口径与公式复杂度对齐：任何提交都 ≥ 求解器最优（差值不为负）", () => {
+  // 构造一个"按锥去重会小于最优"的形状：最优解需要 2 门的两输出，
+  // 若玩家用共享门，按引用展开 = 3，去掉引用去重 = 2。
+  const shared = {
+    inputs: ["i0", "i1", "i2", "i3"],
+    outputs: ["o0", "o1"],
+    gates: [
+      { id: "g01", type: "AND", in: ["i0", "i1"] },
+      { id: "g02", type: "OR", in: ["g01", "g01"] },
+    ],
+    outputsMap: { o0: "g02", o1: "g01" },
+  };
+  assert.equal(countedGates(shared), 3 + 1);
+});

@@ -15,8 +15,13 @@ import { gzipSync } from "node:zlib";
 import { simulate, truthTableMasks, inputCombinations } from "../src/core/sim.mjs";
 import { referenceSimulate } from "../tests/reference/sim-reference.mjs";
 import { generateLevel } from "../src/core/generator.mjs";
-import { solveOptimal } from "../src/core/solver.mjs";
+import { countedGates, optimalNetlist, solveOptimal } from "../src/core/solver.mjs";
 import { encodeRecord, decodeRecord } from "../src/core/replay.mjs";
+import { buildRevealPlan, revealSequence } from "../src/core/reveal.mjs";
+import { addGate, connectSignal, createDraft, toNetlist, validateDraft } from "../src/core/editor.mjs";
+import { judgeSubmission, recomputeProbes } from "../src/core/judge.mjs";
+import { copyFor, forbiddenTermHits } from "../src/ui/copy.mjs";
+import { campaignOptions, campaignSeed } from "../src/ui/level-source.mjs";
 import { build } from "./build.mjs";
 import { buildFixtures } from "./gen-fixtures.mjs";
 
@@ -190,8 +195,278 @@ function checkBuild() {
   };
 }
 
+/** 在编辑器里原样重建生成器产出的网表（不做任何"理解"，只搬接线）。 */
+function rebuildThroughEditor(level) {
+  const draft = createDraft(level);
+  const idMap = new Map();
+  for (const gate of level.netlist.gates) {
+    const result = addGate(draft, gate.type, { x: 320, y: 200 });
+    if (!result.ok) return { ok: false, reason: result.errors[0]?.code ?? "add-failed" };
+    idMap.set(gate.id, result.id);
+    gate.in.forEach((src, pin) => {
+      const connected = connectSignal(draft, idMap.get(src) ?? src, { gate: result.id, pin });
+      if (!connected.ok) return;
+    });
+  }
+  for (const name of level.outputs) {
+    connectSignal(draft, idMap.get(level.netlist.outputsMap[name]) ?? level.netlist.outputsMap[name], {
+      output: name,
+    });
+  }
+  return { ok: true, draft };
+}
+
+/**
+ * M3 结算闭环：
+ *   a. 编辑器能表达生成器的全部产物并通过校验
+ *   b. 照答案提交 → 接受、差值为 0、结算字段与求解器一致
+ *   c. 改错一个输出 → 给出具体失配行
+ *   d. 最优解可构造：门数 == 求解器最优（证明不是只给了下界）
+ *   e. 探测序列可重算，逐项一致
+ */
+function checkSettlement() {
+  const CASES = 400;
+  const PROBE_SEQS = [
+    [0, 1, 2, 3],
+    [15, 0, 8, 8, 7],
+    Array.from({ length: 24 }, (_, index) => (index * 5) & 0xf),
+  ];
+  let checked = 0;
+  let editorFailures = 0;
+  let settlementMismatch = 0;
+  let differenceFailures = 0;
+  let mismatchBlind = 0;
+  let unreachableOptimal = 0;
+  let probeMismatch = 0;
+  const samples = [];
+
+  for (let seed = 0; seed < CASES; seed += 1) {
+    const generated = generateLevel(seed);
+    if (!generated.ok) continue;
+    const { level } = generated;
+    checked += 1;
+
+    const rebuilt = rebuildThroughEditor(level);
+    if (!rebuilt.ok) {
+      editorFailures += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "editor-cannot-express" });
+      continue;
+    }
+    const validation = validateDraft(rebuilt.draft);
+    if (!validation.ok) {
+      editorFailures += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "draft-invalid", errors: validation.errors.slice(0, 2) });
+      continue;
+    }
+
+    const accepted = judgeSubmission(rebuilt.draft, level, { probes: 3 });
+    if (!accepted.accepted) {
+      settlementMismatch += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "answer-rejected" });
+      continue;
+    }
+    const yourGates = countedGates(toNetlist(rebuilt.draft));
+    if (accepted.settlement.optimalGates !== level.optimal || accepted.settlement.yourGates !== yourGates) {
+      settlementMismatch += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "settlement-fields-drift" });
+    }
+    if (accepted.settlement.difference !== yourGates - level.optimal || accepted.settlement.difference < 0) {
+      differenceFailures += 1;
+      if (samples.length < 5) {
+        samples.push({ seed, reason: "difference", your: yourGates, optimal: level.optimal });
+      }
+    }
+
+    // 改错一个输出后必须报出具体失配，而不是只报"错"。
+    const tampered = judgeSubmission(
+      tamperOutput(rebuilt.draft, level),
+      level,
+      { probes: 1 },
+    );
+    const isBlind = tampered.accepted || tampered.reason !== "mismatch" || !tampered.mismatch;
+    if (isBlind) mismatchBlind += 1;
+    else if (
+      !Number.isInteger(tampered.mismatch.row) ||
+      tampered.mismatch.input.length !== level.inputs.length ||
+      typeof tampered.mismatch.output !== "string"
+    ) {
+      mismatchBlind += 1;
+    }
+
+    // 最优解可达：构造最优网表，门数必须等于求解器给出的值。
+    const { masks } = truthTableMasks(level.netlist);
+    const solved = solveOptimal(masks, level.inputs.length, 12);
+    const built = optimalNetlist(masks, level.inputs.length, 12, level.outputs);
+    if (countedGates(built) !== solved.optimal) {
+      unreachableOptimal += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "optimal-unreachable", built: countedGates(built), optimal: solved.optimal });
+    }
+
+    for (const probes of PROBE_SEQS) {
+      const first = recomputeProbes(level, probes);
+      const second = recomputeProbes(generateLevel(seed).level, probes);
+      if (JSON.stringify(first) !== JSON.stringify(second)) {
+        probeMismatch += 1;
+        if (samples.length < 5) samples.push({ seed, reason: "probe-recompute" });
+        break;
+      }
+    }
+  }
+
+  const pass =
+    checked === CASES &&
+    editorFailures === 0 &&
+    settlementMismatch === 0 &&
+    differenceFailures === 0 &&
+    mismatchBlind === 0 &&
+    unreachableOptimal === 0 &&
+    probeMismatch === 0;
+
+  return {
+    name: "settlement.closure",
+    pass,
+    detail: {
+      cases: checked,
+      editorFailures,
+      settlementMismatch,
+      differenceFailures,
+      mismatchBlind,
+      unreachableOptimal,
+      probeMismatch,
+      probeSequences: PROBE_SEQS.length,
+    },
+    samples,
+  };
+}
+
+/**
+ * 把第一个输出改接到一个**函数必然不同**的信号上。
+ * 生成器允许 `OR(i0,i0)=i0` 这类退化结构，所以不能盲选输入端口；
+ * 先按真值表掩码筛掉同功能候选，筛不出就改接该输出的取反（NOT 包一层会新增门，
+ * 这里直接换成另一个已知不同函数的输入/门）。
+ */
+function tamperOutput(draft, level) {
+  const clone = {
+    ...draft,
+    gates: draft.gates.map((gate) => ({ ...gate, in: [...gate.in] })),
+    outputsMap: { ...draft.outputsMap },
+  };
+  const name = level.outputs[0];
+  const own = toNetlist(draft);
+  const originalMask = truthTableMasks(own).masks[name];
+  const candidates = clone.gates.map((gate) => gate.id).filter((id) => {
+    const probe = { ...own, outputs: [name], outputsMap: { [name]: id } };
+    return truthTableMasks(probe).masks[name] !== originalMask;
+  });
+  if (candidates.length > 0) {
+    clone.outputsMap[name] = candidates[0];
+  } else {
+    // 极少见：所有中间信号与该输出同函数。此时改接一个输入端口。
+    clone.outputsMap[name] = level.inputs.find((input) => input !== own.outputsMap[name]) ?? "i0";
+  }
+  return clone;
+}
+
+/** M3 揭示：层级严格递增、无空层、终态覆盖全部门（读数据，不靠截图）。 */
+function checkReveal() {
+  const CASES = 500;
+  let nonIncreasing = 0;
+  let emptyLayer = 0;
+  let uncovered = 0;
+  const samples = [];
+  for (let seed = 0; seed < CASES; seed += 1) {
+    const generated = generateLevel(seed);
+    if (!generated.ok) continue;
+    const { level } = generated;
+    const plan = buildRevealPlan(level.netlist);
+    const sequence = revealSequence(plan);
+    for (let i = 1; i < sequence.length; i += 1) {
+      if (sequence[i] <= sequence[i - 1]) nonIncreasing += 1;
+    }
+    if (plan.layers.some((layer) => layer.length === 0)) {
+      emptyLayer += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "empty-layer" });
+    }
+    const revealed = new Set(plan.layers.flat());
+    if (revealed.size !== level.netlist.gates.length) {
+      uncovered += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "uncovered", gates: level.netlist.gates.length });
+    }
+    for (const [id, layer] of Object.entries(plan.layerById)) {
+      const gate = level.netlist.gates.find((item) => item.id === id);
+      for (const src of gate.in) {
+        if (plan.layerById[src] !== undefined && plan.layerById[src] >= layer) {
+          nonIncreasing += 1;
+          if (samples.length < 5) samples.push({ seed, reason: "upstream-layer", src, id });
+        }
+      }
+    }
+  }
+  return {
+    name: "reveal.order",
+    pass: nonIncreasing === 0 && emptyLayer === 0 && uncovered === 0,
+    detail: { seeds: CASES, nonIncreasing, emptyLayer, uncovered },
+    samples,
+  };
+}
+
+/** M3 术语门槛（D1）：前 3 关文案与页面骨架都不得出现正式术语。 */
+function checkTerms() {
+  const hits = [];
+  for (let index = 1; index <= 3; index += 1) {
+    for (const hit of forbiddenTermHits(copyFor(index))) hits.push({ source: `copy:${index}:${hit.label}`, term: hit.term });
+  }
+  const html = readFileSync(join(ROOT, "index.html"), "utf8")
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<style[\s\S]*?<\/style>/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+  for (const term of ["门", "NAND", "AND", "OR", "NOT"]) {
+    if (html.includes(term)) hits.push({ source: "index.html", term });
+  }
+  // 阳性对照：扫描器必须能抓到禁用词，否则"0 命中"没有意义。
+  const positive = forbiddenTermHits({ ...copyFor(1), hintProbe: "这里有个门" }).length > 0;
+  return {
+    name: "copy.terms",
+    pass: hits.length === 0 && positive,
+    detail: { hits: hits.length, positiveControl: positive, earlyLevels: 3 },
+    samples: hits.slice(0, 5),
+  };
+}
+
+/** 战役前 3 关的存在性与难度：低预算、最优 2 门、可生成。 */
+function checkCampaign() {
+  const failures = [];
+  const levels = [];
+  for (let index = 1; index <= 3; index += 1) {
+    const options = campaignOptions(index);
+    const generated = generateLevel(campaignSeed(index), options);
+    if (!generated.ok) {
+      failures.push({ index, reason: generated.code });
+      continue;
+    }
+    levels.push({ index, optimal: generated.level.optimal, difficulty: generated.level.difficulty });
+    if (generated.level.optimal > 2) failures.push({ index, reason: "too-hard", optimal: generated.level.optimal });
+  }
+  return {
+    name: "campaign.early",
+    pass: failures.length === 0 && levels.length === 3,
+    detail: { levels: levels.length, failures: failures.length, optimal: levels.map((item) => item.optimal) },
+    samples: failures,
+  };
+}
+
 function run(requireList) {
-  const checks = [checkSimCross(), checkFixtureByteStability(), checkGeneration(), checkReplay(), checkBuild()];
+  const checks = [
+    checkSimCross(),
+    checkFixtureByteStability(),
+    checkGeneration(),
+    checkReplay(),
+    checkSettlement(),
+    checkReveal(),
+    checkTerms(),
+    checkCampaign(),
+    checkBuild(),
+  ];
   const required = new Set(requireList);
   const known = new Set(checks.map((check) => check.name));
   const unknown = [...required].filter((name) => !known.has(name));

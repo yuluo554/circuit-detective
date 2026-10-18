@@ -71,6 +71,8 @@ export function generateLevel(seed, options = {}) {
     const netlist = randomNetlist(rng, inputCount, outputCount, gateBudget);
     const check = validateNetlist(netlist);
     if (!check.ok) continue;
+    // 拒绝恒等冗余门（AND(i,i) / OR(i,i) = i）：隐藏实现里不该有玩家看不出的死结构。
+    if (netlist.gates.some((gate) => gate.in.length === 2 && gate.in[0] === gate.in[1])) continue;
 
     const { masks, hasX } = truthTableMasks(netlist);
     if (Object.values(hasX).some(Boolean)) continue;
