@@ -5,6 +5,9 @@
 > 库内路径一律相对仓库根。启动提示词见文末。
 >
 > **M5（10 段 `verify` + 单文件构建 + 静态扫描）在本轮之前已全绿**，因此下一棒只剩 **M6 发布**。
+> 但 M5 一直没有自己的交接单（它的产物在 M0–M3 分批落地，被 `HANDOFF-M3.md` 以"✅ 9 段"结账），
+> 本轮补写了 **`plan/HANDOFF-M5.md`**：M6 请**两份一起读**——`HANDOFF-M5.md` 管自检链/构建/CI 基线，
+> 本文件 §4 管发布待办（两份清单同源，冲突时以 `HANDOFF-M5.md` §4 为准）。
 
 ## 1. 当前进度与证据
 
@@ -24,7 +27,7 @@
 **本轮实测（2026-10-18，Windows + Node v24.15.0）**
 
 ```
-npm test                        → tests 127 / pass 127 / fail 0
+npm test                        → tests 131 / pass 131 / fail 0（含补写的 tests/handoff-gate.test.mjs）
 npm run verify                  → 10 段全 PASS，rc=0
                                   sim.cross: 1000 fixtures / 9540 comparisons / 0 differences
                                   level.generation: 10000 seeds / failed 0 / ambiguous 0 / recheck 100%
@@ -121,6 +124,9 @@ node tools/check-release.mjs    → 离线模式 PASS 5 / FAIL 2 / SKIP 2
 | **K28** | 回放按 tick 同时推进探测步与揭示层（末尾同到终态）；回放固定用无术语词表 | `advanceReplay` / `replayCopy()` |
 | **K29** | 短码 seed 解码必须还原为**无符号 64 位**（`read(32) >>> 0`） | `src/core/replay.mjs` / `tests/replay.test.mjs` |
 | **K30** | 短码超长走 `error.code = "code-overflow"`（调用方据此降级，不看文案字符串） | `src/core/replay.mjs` |
+
+> **K31–K35 在 `plan/HANDOFF-M5.md` §5**（M5 收尾补记：`verify` 判定项口径 / 样例产出方式 /
+> 构建逐字节确定 / 测试清单逐文件登记 / 交接单守门）。编号连续，两份文件合起来才是完整的 K 清单。
 
 ## 6. 本机环境坑（本轮实测）
 
@@ -219,6 +225,7 @@ npm run dev
 ```
 /goal 读取 "<项目根>\plan\HANDOFF-M4.md" 继续完成任务：
 本棒目标是 M6 发布（plan/RELEASE-M6.md → git tag → GitHub Release → check-release.mjs --online 无 FAIL）。
+同时读 plan/HANDOFF-M5.md（verify / 构建 / CI 基线 + M6 待办清单）。
 先跑 npm test、npm run verify、npm run verify:engines、node tools/smoke.mjs 复测基线，
 再按 §4 待办逐项做；收尾时更新 plan/05 的 M6 DoD 与已知未验证项、刷新 docs/verify-sample.*，
 并 commit（tag 与 Release 需要用户明确确认后再动）。

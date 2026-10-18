@@ -21,13 +21,17 @@
 | `plan/06-交付对标与决策.md` | 评分对标、开放项 | ✅ M0 |
 | `src/` + `index.html` | 单页应用源码（仿真核 / 生成器 / 求解器 / 编辑器 / 判定 / 揭示 / 分享与回放 / 渲染 / 交互） | ✅ M4 |
 | `docs/verify-sample.txt` | `npm run verify` 的真实输出样例（p50 / p99、通过率、外链扫描） | ✅ M4 重生成（10 段） |
-| `plan/HANDOFF-M<k>.md` | **第 k 个里程碑的收尾交接单**（基线证据 / 待办 / K 口径 / 环境坑 / DoD / 启动提示词） | M1 ✅、M2 ✅、M3 ✅、M4 ✅ |
+| `plan/HANDOFF-M<k>.md` | **第 k 个里程碑的收尾交接单**（基线证据 / 待办 / K 口径 / 环境坑 / DoD / 启动提示词） | M1 ✅、M2 ✅、M3 ✅、M4 ✅、M5 ✅ |
 | `plan/RELEASE-M6.md` | 发布留档（tag 前入库；tag 后追加事实分栏） | ⬜ M6 |
 
 > **交接单命名规则**（2026-10-18 钉死）：`plan/HANDOFF-M<k>.md` = 第 k 个里程碑**收尾**时写的交接单，
 > 该棒完成后由下一棒读取。历史沿革：`HANDOFF-M1.md` 写于 M1（与 M2 同提交）收尾，其 §7 曾把
 > 下一份写成 `HANDOFF-M4.md`（命名歧义）；`HANDOFF-M2.md` 为 M2 收尾补记，`HANDOFF-M3.md` 为
-> M3 收尾，`HANDOFF-M4.md` 为 M4 收尾（下一棒读它做 M6）。
+> M3 收尾，`HANDOFF-M4.md` 为 M4 收尾。
+> **M5 的补记**：M5 的产物（`verify` / 单文件构建 / 静态扫描）在 M0–M3 各轮分批落地、由
+> `HANDOFF-M3.md` 以"✅ 9 段"结账，**当时漏写了 M5 自己的交接单**；M4 轮又把它改成 10 段（新增
+> `share.roundtrip`）并刷新了样例，因此在 M4 轮补齐 `HANDOFF-M5.md`——**下一棒（M6）两份一起读**：
+> `HANDOFF-M5.md` 管 verify/构建/CI 基线，`HANDOFF-M4.md` §4 管发布待办（两份清单同源）。
 
 ## 二、决策记录
 
