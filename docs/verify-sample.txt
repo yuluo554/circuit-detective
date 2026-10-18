@@ -13,13 +13,24 @@ PASS  level.generation
       solverRecheckTotal: 10000
       solverRecheckMismatch: 0
       solverRecheckPassRate: 1
-      p50ms: 0.132
-      p99ms: 0.459
+      p50ms: 0.176
+      p99ms: 0.73
       optimalHistogram: {"2":3945,"3":2979,"4":1701,"5":850,"6":368,"7":115,"8":42}
 PASS  replay.crossInstance
       cases: 3
       mismatches: 0
       consistency: 1
+PASS  share.roundtrip
+      cases: 200
+      encoded: 200
+      consistency: 1
+      stepsMismatch: 0
+      netlistMismatch: 0
+      optimalMismatch: 0
+      tooLong: 0
+      tamperBlind: 0
+      maxCodeLength: 40
+      probesPerCase: 10
 PASS  settlement.closure
       cases: 400
       editorFailures: 0
@@ -43,8 +54,8 @@ PASS  campaign.early
       failures: 0
       optimal: [2,2,2]
 PASS  build.static
-      bytes: 92630
-      gzipBytes: 28190
+      bytes: 114516
+      gzipBytes: 34806
       externalLinks: 0
       missingBones: []
 ================================================

@@ -1,8 +1,8 @@
-// 交互层：拨杆 → 仿真核 → 灯；拼装视图 → 提交 → 结算 → 逐层点亮。
+// 交互层：拨杆 → 仿真核 → 灯；拼装视图 → 提交 → 结算 → 逐层点亮；`#r=` 短码 → 只读回放。
 // 观察结果只由 sim.mjs 决定；渲染层与动画时序不参与任何判定。
 
 import { simulate } from "../core/sim.mjs";
-import { generateLevel, dailySeed } from "../core/generator.mjs";
+import { generateLevel } from "../core/generator.mjs";
 import { GATE_TYPES } from "../core/netlist.mjs";
 import { countedGates } from "../core/solver.mjs";
 import {
@@ -19,6 +19,7 @@ import {
 } from "../core/editor.mjs";
 import { buildRevealPlan, revealProgress } from "../core/reveal.mjs";
 import { bitsToVector, judgeSubmission } from "../core/judge.mjs";
+import { decodeReplay, sharePayload } from "../core/share.mjs";
 import {
   autoLayout,
   clampToWorkArea,
@@ -33,10 +34,10 @@ import {
   campaignIndexFromSeed,
   campaignOptions,
   campaignSeed,
+  routeFromLocation,
   seedFromDate,
-  seedFromLocation,
 } from "./level-source.mjs";
-import { copyFor } from "./copy.mjs";
+import { copyFor, replayCopy } from "./copy.mjs";
 
 const REVEAL_INTERVAL_MS = 520;
 const NOTE_PREFIX = "circuit-detective/note/";
@@ -62,6 +63,7 @@ const state = {
   settlement: null,
   mismatch: null,
   reveal: null,
+  replay: null,
   revealTimer: null,
   status: "",
 };
@@ -69,6 +71,16 @@ const state = {
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 const el = (id) => document.getElementById(id);
+
+/** 揭示态与回放态都是只读态：编辑器、提交、清空、摆件一律锁死。 */
+function readOnly() {
+  return Boolean(state.reveal) || Boolean(state.replay);
+}
+
+/** 播放时钟：揭示动画与回放共用同一个计时器字段（两者不会同时跑）。 */
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+}
 
 function setStatus(text) {
   state.status = text;
@@ -122,7 +134,7 @@ function renderPalette() {
 }
 
 function placePart(type) {
-  if (!state.draft || state.reveal) return;
+  if (!state.draft || readOnly()) return;
   const result = addGate(state.draft, type, freeSlot(state.draft));
   if (!result.ok) {
     setReadout(result.errors[0].message, "bad");
@@ -164,6 +176,7 @@ function loadLevel(seedText) {
   state.settlement = null;
   state.mismatch = null;
   state.reveal = null;
+  state.replay = null;
   applyCopy(copyFor(index));
   el("seed").value = seedText;
   el("level-id").textContent = index ? `关卡 ${index}` : state.level.label;
@@ -229,19 +242,30 @@ function updateLampChips() {
   );
 }
 
+function canShare() {
+  // 分享文案要含"门数差"，所以只在结算之后可用；回放态本身已经是码，不再重复分享。
+  return Boolean(state.level && state.settlement && !state.replay);
+}
+
 function updatePanel() {
+  const locked = readOnly();
   el("probes").textContent = String(state.probes);
   el("submissions").textContent = String(state.submissions);
   updateLampChips();
   el("view-probe").classList.toggle("active", state.view === "probe");
   el("view-build").classList.toggle("active", state.view === "build");
-  el("submit").disabled = !state.level || Boolean(state.reveal);
-  el("delete").disabled = !state.selected || Boolean(state.reveal);
-  el("clear").disabled = !state.draft || state.draft.gates.length === 0 || Boolean(state.reveal);
-  el("share").disabled = true;
+  el("submit").disabled = !state.level || locked;
+  el("delete").disabled = !state.selected || locked;
+  el("clear").disabled = !state.draft || state.draft.gates.length === 0 || locked;
+  el("share").disabled = !canShare();
   el("prev").disabled = !state.campaignIndex || state.campaignIndex <= 1;
   el("next").disabled = !state.campaignIndex || state.campaignIndex >= CAMPAIGN_LAST;
-  el("hint").innerHTML = state.view === "probe" ? state.copy.hintProbe : state.copy.hintBuild;
+  for (const button of el("palette").querySelectorAll("button")) button.disabled = locked || !state.level;
+  el("hint").innerHTML = state.replay
+    ? state.copy.hintReplay
+    : state.view === "probe"
+      ? state.copy.hintProbe
+      : state.copy.hintBuild;
 }
 
 function setView(view) {
@@ -258,9 +282,17 @@ function partValues() {
   return result.ok ? result.gates : {};
 }
 
+/** 只读叠加层（结算揭示 / 短码回放）：决定哪些门可见、灯显示成什么值。 */
+function overlay() {
+  if (state.reveal) return { revealed: state.reveal.revealed, lamps: state.reveal.lamps };
+  if (state.replay) return { revealed: state.replay.revealed, lamps: state.replay.lamps };
+  return null;
+}
+
 function render() {
   if (!state.level) return;
-  if (state.view === "probe" && !state.reveal) {
+  const shown = overlay();
+  if (state.view === "probe" && !shown) {
     drawProbe(ctx, {
       inputs: state.level.inputs,
       outputs: state.level.outputs,
@@ -269,16 +301,15 @@ function render() {
     });
     return;
   }
-  const revealed = state.reveal ? state.reveal.revealed : null;
   drawBoard(ctx, {
     draft: state.draft,
     values: state.values,
     selected: state.selected,
     source: state.source,
     hover: state.hover,
-    revealed,
-    revealLamps: state.reveal ? state.reveal.lamps : null,
-    partValues: revealed ? null : partValues(),
+    revealed: shown ? shown.revealed : null,
+    revealLamps: shown ? shown.lamps : null,
+    partValues: shown ? null : partValues(),
     partLabel: (type) => state.copy.part[type] ?? type,
   });
 }
@@ -288,7 +319,7 @@ function pointerPoint(event) {
 }
 
 function onCanvasPointerDown(event) {
-  if (!state.level || state.reveal) return;
+  if (!state.level || readOnly()) return;
   const point = pointerPoint(event);
   if (state.view === "probe") {
     toggleLeverAt(point);
@@ -376,7 +407,7 @@ function reportEdit(result) {
 }
 
 function onCanvasPointerMove(event) {
-  if (!state.level || state.reveal || state.view !== "build") return;
+  if (!state.level || readOnly() || state.view !== "build") return;
   const point = pointerPoint(event);
   if (state.dragged) {
     const gate = gateById(state.draft, state.dragged.id);
@@ -410,6 +441,7 @@ function toggleLeverAt(point) {
 }
 
 function toggleLeverByIndex(index) {
+  if (readOnly()) return false;
   if (!Number.isInteger(index) || index < 0 || index >= state.values.length) return false;
   state.values[index] = state.values[index] === 1 ? 0 : 1;
   evaluate();
@@ -419,7 +451,7 @@ function toggleLeverByIndex(index) {
 }
 
 function submit() {
-  if (!state.level || state.reveal) return;
+  if (!state.level || readOnly()) return;
   const outcome = judgeSubmission(state.draft, state.level, { probes: state.probes });
   state.submissions += 1;
   el("submissions").textContent = String(state.submissions);
@@ -472,7 +504,7 @@ function startReveal() {
   stopReveal();
   const plan = buildRevealPlan(state.level.netlist);
   const laidOut = autoLayout(state.level.netlist);
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+  const reduced = prefersReducedMotion();
   const total = plan.layers.length;
 
   // 揭示态复用同一个画布：把隐藏网表按层级摆好，交由 revealed 集合控制可见性。
@@ -536,6 +568,203 @@ function stopReveal() {
   }
 }
 
+// —— 短码回放（M4）——
+// 进入回放不重新生成关卡、不重新计数：探测序列与灯值全部由短码里的网表重算，
+// 播放只是把已经算好的步表按时间摊开，因此同一条短码在任何实例上逐项相同。
+
+function clearBoard() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/** 短码不可用（篡改 / 截断 / 版本不兼容 / 非法字符）：明确提示，不静默进普通关卡。 */
+function showReplayError(error) {
+  stopReveal();
+  state.level = null;
+  state.draft = null;
+  state.reveal = null;
+  state.replay = null;
+  state.settlement = null;
+  state.mismatch = null;
+  state.seedText = "";
+  state.campaignIndex = null;
+  state.probes = 0;
+  state.probeLog = [];
+  state.probeObservations = [];
+  state.lamps = [0, 0, 0, 0];
+  state.values = [0, 0, 0, 0];
+  applyCopy(replayCopy());
+  el("seed").value = "";
+  el("level-id").textContent = "—";
+  el("submissions").textContent = "0";
+  el("settlement").hidden = true;
+  el("lamps").replaceChildren();
+  el("status").textContent = state.copy.statusReplayError;
+  setReadout(`${state.copy.replayBad(String((error && error.message) || error))} ${state.copy.replayHint}`, "bad");
+  clearBoard();
+  updatePanel();
+}
+
+/** 短码 → 只读回放态。返回是否进入成功。 */
+function enterReplay(code) {
+  let decoded;
+  try {
+    decoded = decodeReplay(code);
+  } catch (error) {
+    showReplayError(error);
+    return false;
+  }
+  stopReveal();
+  state.level = decoded.level;
+  state.seedText = decoded.seedText;
+  state.campaignIndex = null;
+  state.values = new Array(decoded.level.inputs.length).fill(0);
+  state.probes = decoded.probes.length; // 回放是对已有探测的重演，不新增计数
+  state.probeLog = [...decoded.probes];
+  state.probeObservations = decoded.steps.map((row) => ({ vector: row.vector, outputs: { ...row.outputs } }));
+  state.lastVector = null;
+  state.lamps = new Array(decoded.level.outputs.length).fill(0);
+  state.submissions = 0;
+  state.settlement = null;
+  state.mismatch = null;
+  state.reveal = null;
+  state.selected = null;
+  state.source = null;
+  state.hover = null;
+  state.dragged = null;
+
+  const laidOut = autoLayout(decoded.level.netlist);
+  state.draft = {
+    inputs: [...decoded.level.inputs],
+    outputs: [...decoded.level.outputs],
+    gates: laidOut.gates.map((gate) => ({ ...gate, in: [...gate.in] })),
+    outputsMap: { ...decoded.level.netlist.outputsMap },
+    nextGateNumber: laidOut.gates.length + 1,
+  };
+  const plan = buildRevealPlan(decoded.level.netlist);
+  state.replay = {
+    code,
+    version: decoded.version,
+    seedText: decoded.seedText,
+    optimal: decoded.optimal,
+    probes: [...decoded.probes],
+    steps: decoded.steps,
+    plan,
+    total: decoded.probes.length,
+    totalTicks: Math.max(decoded.probes.length, plan.layers.length),
+    tick: 0,
+    step: 0,
+    revealed: new Set(),
+    lamps: new Array(decoded.level.outputs.length).fill(0),
+  };
+
+  applyCopy(replayCopy());
+  el("seed").value = state.seedText;
+  el("level-id").textContent = state.copy.replayLabel;
+  el("submissions").textContent = "0";
+  el("settlement").hidden = true;
+  el("note").value = "";
+  setView("build");
+  setStatus(state.copy.statusReplay);
+  setReadout(state.copy.readout.replayReady(state.replay.total, state.draft.gates.length));
+  startReplayClock();
+  return true;
+}
+
+/** 把播放进度摊到 tick 上：探测步与揭示层数都随 tick 单调推进，末尾同时到终态。 */
+function advanceReplay(tick) {
+  const replay = state.replay;
+  if (!replay) return;
+  const clamped = Math.max(0, Math.min(tick, replay.totalTicks));
+  const step = Math.min(clamped, replay.total);
+  const layers = Math.min(clamped, replay.plan.layers.length);
+  replay.tick = clamped;
+  replay.step = step;
+
+  const row = step > 0 ? replay.steps[step - 1] : null;
+  state.values = row ? [...row.inputs] : new Array(state.level.inputs.length).fill(0);
+  const lamps = row
+    ? state.level.outputs.map((name) => row.outputs[name])
+    : new Array(state.level.outputs.length).fill(0);
+  state.lamps = lamps;
+  replay.revealed = revealProgress(replay.plan, layers).revealed;
+  // 灯只在它的来源门被揭晓后才亮，避免回放把还没亮到的部分提前泄漏。
+  replay.lamps = state.level.outputs.map((name) => {
+    const src = state.level.netlist.outputsMap[name];
+    const known = !state.level.netlist.gates.some((gate) => gate.id === src) || replay.revealed.has(src);
+    return known ? lamps[state.level.outputs.indexOf(name)] : 0;
+  });
+
+  setReadout(state.copy.readout.replayStep(step, replay.total));
+  render();
+  updatePanel();
+}
+
+function startReplayClock() {
+  stopReveal();
+  const replay = state.replay;
+  const ticks = replay.totalTicks;
+  if (prefersReducedMotion() || ticks === 0) {
+    advanceReplay(ticks);
+    finishReplayClock();
+    return;
+  }
+  advanceReplay(0);
+  state.revealTimer = window.setInterval(() => {
+    const next = replay.tick + 1;
+    advanceReplay(next);
+    if (next >= ticks) finishReplayClock();
+  }, REVEAL_INTERVAL_MS);
+}
+
+function finishReplayClock() {
+  stopReveal();
+  if (!state.replay) return;
+  setStatus(state.copy.statusReplayDone);
+  setReadout(state.copy.readout.replayDone, "good");
+  render();
+  updatePanel();
+}
+
+/** 手动逐步（左右方向键）：手一动就停自动播放，停在当前 tick。 */
+function stepReplay(delta) {
+  if (!state.replay) return false;
+  stopReveal();
+  setStatus(state.copy.statusReplay);
+  advanceReplay(state.replay.tick + delta);
+  if (state.replay.tick >= state.replay.totalTicks) finishReplayClock();
+  return true;
+}
+
+function copyText(text) {
+  try {
+    const clipboard = navigator.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== "function") return;
+    const pending = clipboard.writeText(text);
+    if (pending && typeof pending.catch === "function") pending.catch(() => {});
+  } catch {
+    // file:// 或权限受限：剪贴板不可用，文案已经贴在 readout 里，手动复制。
+  }
+}
+
+/** 分享：探测次数 + 门数差 + 短码；短码超长时降级为"种子 + 探测次数"。 */
+function shareCurrent() {
+  if (!canShare()) return;
+  const payload = sharePayload({
+    seed: state.seedText,
+    probes: state.probeLog,
+    netlist: state.level.netlist,
+    difference: state.settlement.difference,
+  });
+  const text = payload.ok
+    ? state.copy.shareText({ probes: payload.probes, difference: payload.difference, code: payload.code })
+    : state.copy.shareFallbackText({ probes: payload.probes, seed: state.seedText });
+  copyText(text);
+  const head = payload.ok
+    ? state.copy.shareCopied
+    : `${state.copy.shareDegraded}（${payload.message}） ${state.copy.shareManual}`;
+  setReadout(`${head} ${text}`, payload.ok ? "good" : "");
+}
+
 canvas.addEventListener("pointerdown", (event) => {
   canvas.setPointerCapture?.(event.pointerId);
   onCanvasPointerDown(event);
@@ -545,7 +774,14 @@ canvas.addEventListener("pointerup", onCanvasPointerUp);
 canvas.addEventListener("pointercancel", onCanvasPointerUp);
 canvas.addEventListener("keydown", (event) => {
   if (!state.level) return;
-  if (state.view === "probe" && !state.reveal) {
+  if (state.replay) {
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      stepReplay(event.key === "ArrowRight" ? 1 : -1);
+    }
+    return;
+  }
+  if (state.view === "probe" && !readOnly()) {
     const index = Number(event.key) - 1;
     if (Number.isInteger(index)) {
       event.preventDefault();
@@ -553,7 +789,7 @@ canvas.addEventListener("keydown", (event) => {
     }
     return;
   }
-  if (state.reveal) return;
+  if (readOnly()) return;
   if (event.key === "Delete" || event.key === "Backspace") {
     if (!state.selected) return;
     event.preventDefault();
@@ -585,7 +821,7 @@ el("view-probe").addEventListener("click", () => setView("probe"));
 el("view-build").addEventListener("click", () => setView("build"));
 el("submit").addEventListener("click", submit);
 el("clear").addEventListener("click", () => {
-  if (!state.draft || state.reveal) return;
+  if (!state.draft || readOnly()) return;
   clearDraft(state.draft);
   state.selected = null;
   state.source = null;
@@ -594,7 +830,7 @@ el("clear").addEventListener("click", () => {
   updatePanel();
 });
 el("delete").addEventListener("click", () => {
-  if (!state.draft || !state.selected || state.reveal) return;
+  if (!state.draft || !state.selected || readOnly()) return;
   removeGate(state.draft, state.selected);
   state.selected = null;
   state.source = null;
@@ -627,9 +863,7 @@ function goCampaign(index) {
   if (loadLevel(seed)) history.replaceState(null, "", `#s=${encodeURIComponent(seed)}`);
 }
 
-el("share").addEventListener("click", () => {
-  setReadout(state.copy.readout.summary(state.probes));
-});
+el("share").addEventListener("click", shareCurrent);
 
 el("note").addEventListener("input", () => writeNote(el("note").value));
 
@@ -650,6 +884,29 @@ function snapshot() {
     submissions: state.submissions,
     settlement: state.settlement ? { ...state.settlement } : null,
     mismatch: state.mismatch ? { ...state.mismatch } : null,
+    replay: state.replay
+      ? {
+          code: state.replay.code,
+          version: state.replay.version,
+          seedText: state.replay.seedText,
+          optimal: state.replay.optimal,
+          probes: [...state.replay.probes],
+          steps: state.replay.steps.map((row) => ({
+            vector: row.vector,
+            inputs: [...row.inputs],
+            outputs: { ...row.outputs },
+            ok: row.ok,
+            stable: row.stable,
+          })),
+          step: state.replay.step,
+          total: state.replay.total,
+          tick: state.replay.tick,
+          totalTicks: state.replay.totalTicks,
+          layers: state.replay.plan.layers.map((layer) => [...layer]),
+          revealed: [...state.replay.revealed],
+          lamps: [...state.replay.lamps],
+        }
+      : null,
     reveal: state.reveal
       ? {
           step: state.reveal.step,
@@ -681,4 +938,8 @@ window.__circuitDetective = Object.freeze({
   counts: () => (state.draft ? countedGates(toNetlist(state.draft)) : null),
 });
 
-loadLevel(seedFromLocation(window.location) || dailySeed(seedFromDate(new Date())));
+// 入口路由：`#r=` 短码优先进入只读回放；否则按 `#s=` 种子（缺省 = 今日题）开一关。
+// 失败路径（短码不可用）由 enterReplay 明确提示，不会退化成普通关卡。
+const route = routeFromLocation(window.location);
+if (route.kind === "replay") enterReplay(route.code);
+else loadLevel(route.seed);

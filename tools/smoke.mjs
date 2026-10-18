@@ -8,6 +8,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateLevel } from "../src/core/generator.mjs";
 import { truthTableMasks } from "../src/core/sim.mjs";
+import { recomputeProbes } from "../src/core/judge.mjs";
+import { sharePayload } from "../src/core/share.mjs";
 import { gateInputPin, gateOutputPin, socketPoint } from "../src/ui/layout.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,6 +64,26 @@ const check = (name, condition, detail) => {
   notes.push(line);
   if (!condition) failures.push(name);
 };
+
+function report() {
+  process.stdout.write("冒烟 · headless Chromium\n");
+  process.stdout.write("=".repeat(48) + "\n");
+  for (const line of notes) process.stdout.write(`${line}\n`);
+  process.stdout.write("=".repeat(48) + "\n");
+  process.stdout.write(`结论: ${failures.length === 0 ? "全绿" : `${failures.length} 项未通过`}\n`);
+  if (shotPath) process.stdout.write(`截图: ${shotPath}\n`);
+  if (failures.length > 0) process.exitCode = 1;
+}
+
+// 等待超时 / 脚本异常也必须出报告：否则"跑挂了"和"跑绿了"在日志里长得一样。
+// Node 默认把顶级 await 的未处理拒绝升级成 uncaughtException，两个口都要接。
+function abort(error) {
+  check("冒烟脚本未异常中止", false, String((error && error.message) || error).split("\n")[0]);
+  report();
+  process.exit(1);
+}
+process.on("unhandledRejection", abort);
+process.on("uncaughtException", abort);
 
 const browser = await chromium.launch({
   headless: true,
@@ -174,6 +196,16 @@ await page.reload({ waitUntil: "load" });
 await page.waitForFunction(() => Boolean(window.__circuitDetective), null, { timeout: 5000 });
 check("笔记按关卡存在 localStorage（刷新后仍在）", (await page.inputValue("#note")).includes("第 2 关像是一个"));
 
+// 刷新后仍是同一关；顺手拨两下，给后面的分享 / 回放准备一段真实的探测序列。
+await clickBoard(socketPoint("input", 3).x, socketPoint("input", 3).y);
+await clickBoard(socketPoint("input", 2).x, socketPoint("input", 2).y);
+const afterNote = await snapshot();
+check(
+  "刷新后仍是同一关且拨杆重新计数",
+  afterNote.seed === SEED && afterNote.probes === 2 && afterNote.probeLog.length === 2,
+  `${afterNote.seed}/${afterNote.probes}/${afterNote.probeLog.join(",")}`,
+);
+
 // —— 5. 用真实点击照答案拼装 ——
 const { level } = generateLevel(SEED, { gateBudget: 2, minOptimal: 2 });
 const { placed } = await placeAndWire(level);
@@ -187,6 +219,7 @@ check(
   level.outputs.every((name) => typeof wired.draft.outputsMap[name] === "string"),
   JSON.stringify(wired.draft.outputsMap),
 );
+check("结算前分享不可用（文案要含门数差）", await page.locator("#share").isDisabled());
 
 // —— 6. 提交 → 结算 → 逐层点亮 ——
 await page.click("#submit");
@@ -229,6 +262,24 @@ check(
   `${done.reveal.revealed.length}/${level.netlist.gates.length}`,
 );
 
+// —— 6b. 分享按钮：探测次数 + 门数差 + 短码（UI 编码与纯函数逐字节相同）——
+check("结算后分享可用", await page.locator("#share").isEnabled());
+const shareExpect = sharePayload({
+  seed: SEED,
+  probes: done.probeLog,
+  netlist: level.netlist,
+  difference: done.settlement.difference,
+});
+check("分享载荷可编码且 ≤64 字符", shareExpect.ok && shareExpect.code.length <= 64, `${shareExpect.code?.length}`);
+await page.click("#share");
+const shareText = await page.locator("#readout").textContent();
+check(
+  "分享文案含探测次数与门数差",
+  shareText.includes(String(done.probeLog.length)) && shareText.includes(String(done.settlement.difference)),
+  shareText.slice(0, 80),
+);
+check("分享短码与纯函数编码逐字节相同", shareText.includes(shareExpect.code), shareExpect.code);
+
 // —— 7. 错误提交的反馈：结构完整但把 1 号灯接错 ——
 await page.click("#prev");
 await page.click("#next");
@@ -260,16 +311,127 @@ check(
 );
 check("结算面板在未通过时不显示", await page.locator("#settlement").isHidden());
 
+// —— 8. M4：短码回放（`#r=` 只读视图，按步推进且不重新计数）——
+const replayProbes = [...done.probeLog];
+const replayCode = shareExpect.code;
+const expectedSteps = recomputeProbes(level, replayProbes).map((row) => ({
+  vector: row.vector,
+  inputs: [...row.inputs],
+  outputs: { ...row.outputs },
+  ok: row.ok,
+  stable: row.stable,
+}));
+
+await page.goto(`${pathToFileURL(DIST).href}?case=replay#r=${replayCode}`, { waitUntil: "load" });
+await page.waitForFunction(() => Boolean(window.__circuitDetective), null, { timeout: 5000 });
+const replaySnap = await snapshot();
+check("`#r=<code>` 直达回放视图", Boolean(replaySnap.replay), "replay=null");
+check(
+  "回放不改写地址栏（原短码保留在 URL 里）",
+  page.url().includes(`#r=${replayCode}`),
+  page.url().slice(-48),
+);
+check(
+  "回放不新增探测：次数 = 短码里的步数",
+  replaySnap.probes === replayProbes.length && replaySnap.replay?.probes.length === replayProbes.length,
+  `${replaySnap.probes}/${replayProbes.length}`,
+);
+check(
+  "回放步表 = seed + 网表重算，逐项相同",
+  JSON.stringify(replaySnap.replay?.steps) === JSON.stringify(expectedSteps),
+  JSON.stringify(replaySnap.replay?.steps ?? []).slice(0, 60),
+);
+check(
+  "回放展示隐藏网表（拼块数与答案一致）",
+  replaySnap.replay?.layers.flat().length === level.netlist.gates.length,
+  `${replaySnap.replay?.layers.flat().length}/${level.netlist.gates.length}`,
+);
+
+const locked = {
+  submit: await page.locator("#submit").isDisabled(),
+  clear: await page.locator("#clear").isDisabled(),
+  del: await page.locator("#delete").isDisabled(),
+  palette: await page.locator('[data-gate="AND"]').isDisabled(),
+  share: await page.locator("#share").isDisabled(),
+  prev: await page.locator("#prev").isDisabled(),
+  next: await page.locator("#next").isDisabled(),
+};
+check("回放视图只读：提交 / 清空 / 删除 / 摆件全部禁用", Object.values(locked).every(Boolean), JSON.stringify(locked));
+
+const beforeClick = await snapshot();
+await clickBoard(socketPoint("input", 0).x, socketPoint("input", 0).y);
+const afterClick = await snapshot();
+check(
+  "回放里点画布不改变探测次数与接线",
+  afterClick.probes === replayProbes.length && JSON.stringify(afterClick.draft) === JSON.stringify(beforeClick.draft),
+);
+check("回放里键盘也不改状态（数字键被忽略）", await (async () => {
+  await page.locator("#board").focus();
+  await page.keyboard.press("1");
+  return (await snapshot()).probes === replayProbes.length;
+})());
+
+await page.waitForFunction(
+  () => {
+    const snap = window.__circuitDetective.snapshot();
+    return snap.replay && snap.replay.tick >= snap.replay.totalTicks;
+  },
+  null,
+  { timeout: 30000 },
+);
+const replayDone = await snapshot();
+check(
+  "回放按步推进到终态",
+  replayDone.replay.step === replayDone.replay.total && replayDone.replay.tick === replayDone.replay.totalTicks,
+  `${replayDone.replay.step}/${replayDone.replay.total} tick ${replayDone.replay.tick}/${replayDone.replay.totalTicks}`,
+);
+check(
+  "回放终态点亮全部拼块",
+  replayDone.replay.revealed.length === level.netlist.gates.length,
+  `${replayDone.replay.revealed.length}/${level.netlist.gates.length}`,
+);
+
+await page.goto(`${pathToFileURL(DIST).href}?case=priority#r=${replayCode}&s=campaign/1`, { waitUntil: "load" });
+await page.waitForFunction(() => Boolean(window.__circuitDetective), null, { timeout: 5000 });
+const priority = await snapshot();
+check(
+  "`#r=` 优先于 `#s=`（同时给出时进回放而不是普通关卡）",
+  Boolean(priority.replay) && priority.campaignIndex === null && priority.seed !== "campaign/1",
+  `seed=${priority.seed} campaign=${priority.campaignIndex}`,
+);
+
+const tamperAt = Math.floor(replayCode.length / 2);
+const tamperChar = replayCode[tamperAt] === "A" ? "B" : "A";
+const tamperedCode = `${replayCode.slice(0, tamperAt)}${tamperChar}${replayCode.slice(tamperAt + 1)}`;
+await page.goto(`${pathToFileURL(DIST).href}?case=tampered#r=${tamperedCode}`, { waitUntil: "load" });
+await page.waitForFunction(() => Boolean(window.__circuitDetective), null, { timeout: 5000 });
+const badSnap = await snapshot();
+const badText = await page.locator("#readout").textContent();
+check(
+  "篡改一位：明确提示且不静默进普通关卡",
+  badSnap.replay === null && badSnap.draft === null && /用不了/.test(badText),
+  badText.slice(0, 60),
+);
+check(
+  "篡改一位后面板锁死（提交 / 摆件不可用）",
+  (await page.locator("#submit").isDisabled()) && (await page.locator('[data-gate="AND"]').isDisabled()),
+);
+check("篡改一位后页面仍无 JS 错误", pageErrors.length === 0, pageErrors.slice(0, 2).join(" | "));
+
 if (shotPath) {
   mkdirSync(dirname(shotPath), { recursive: true });
+  // 留证用回放终态：M4 的回放视图（只读）比错误提交态更能说明当前能力。
+  await page.goto(`${pathToFileURL(DIST).href}?case=shot#r=${replayCode}`, { waitUntil: "load" });
+  await page.waitForFunction(
+    () => {
+      const snap = window.__circuitDetective.snapshot();
+      return snap.replay && snap.replay.tick >= snap.replay.totalTicks;
+    },
+    null,
+    { timeout: 30000 },
+  );
   await page.screenshot({ path: shotPath });
 }
 await browser.close();
 
-process.stdout.write("冒烟 · headless Chromium\n");
-process.stdout.write("=".repeat(48) + "\n");
-for (const line of notes) process.stdout.write(`${line}\n`);
-process.stdout.write("=".repeat(48) + "\n");
-process.stdout.write(`结论: ${failures.length === 0 ? "全绿" : `${failures.length} 项未通过`}\n`);
-if (shotPath) process.stdout.write(`截图: ${shotPath}\n`);
-if (failures.length > 0) process.exitCode = 1;
+report();

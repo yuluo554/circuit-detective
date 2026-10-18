@@ -15,10 +15,14 @@ const BASIC = Object.freeze({
   submissionLabel: "提交次数",
   hintProbe: "点左边的开关，观察右边的灯。<br>同一个组合反复拨动不计次。",
   hintBuild: "先点一个插口作为来源，再点要接的位置。<br>拼块可以拖动；选中后按方向键微调，按 Delete 删掉。",
+  hintReplay: "回放只读：左右方向键可以逐步重播，不能改动任何接线。",
   statusReady: "黑盒已就绪",
   statusBuilding: "拼装中",
   statusReveal: "正在揭晓",
   statusSettled: "已结算",
+  statusReplay: "回放中（只读）",
+  statusReplayDone: "回放结束（只读）",
+  statusReplayError: "回放码不可用",
   seedPlaceholder: "输入种子，例如 2026-10-19",
   load: "换一关",
   daily: "今日题",
@@ -28,6 +32,14 @@ const BASIC = Object.freeze({
   prev: "上一关",
   clear: "全部清空",
   deleteGate: "删掉选中的拼块",
+  replayLabel: "回放",
+  replayBad: (message) => `这个回放码用不了：${message}`,
+  replayHint: "换一个码或直接玩关卡。",
+  shareText: (info) => `我试探了 ${info.probes} 次，比最少多用 ${info.difference} 个拼块。回放码：${info.code}`,
+  shareFallbackText: (info) => `我试探了 ${info.probes} 次。种子：${info.seed}（这次操作太长，没进回放码）`,
+  shareCopied: "分享文案已复制到剪贴板。",
+  shareManual: "剪贴板不可用，文案已贴在下面，手动复制即可：",
+  shareDegraded: "这次操作太长，已降级为种子分享：",
   paletteLabel: "拼块",
   palette: Object.freeze({
     NOT: "¬ 一个入口",
@@ -62,7 +74,9 @@ const BASIC = Object.freeze({
     noTarget: "这里接不上：点拼块左边的小圆点或右边的灯。",
     introEarly: "先拨开关试试，看清四个灯怎么跟着变，再切到「拼装」把盒子拼出来。",
     introFull: "先拨开关试探，再切到「拼装」把盒子拼出来。",
-    summary: (probes) => `已试探 ${probes} 次。`,
+    replayReady: (probes, steps) => `回放码载入：${probes} 次试探 / ${steps} 个拼块，正在逐步重播（只读）。`,
+    replayStep: (index, total) => `回放第 ${index} / ${total} 步`,
+    replayDone: "回放结束：这就是当时的盒子和试探顺序（只读）。",
   }),
 });
 
@@ -78,6 +92,7 @@ const FULL = Object.freeze({
     OR: "OR 或门",
   }),
   part: Object.freeze({ NOT: "NOT", AND: "AND", OR: "OR" }),
+  shareText: (info) => `我试探了 ${info.probes} 次，比最优多用 ${info.difference} 个门。回放码：${info.code}`,
 });
 
 export const EARLY_LEVEL_LIMIT = 3;
@@ -85,6 +100,14 @@ export const EARLY_LEVEL_LIMIT = 3;
 /** campaignIndex 为 null 表示手动种子（按进阶文案）。 */
 export function copyFor(campaignIndex) {
   return Number.isInteger(campaignIndex) && campaignIndex <= EARLY_LEVEL_LIMIT ? BASIC : FULL;
+}
+
+/**
+ * 回放视图专用词表：短码不带关卡号，无法判断来源关卡，
+ * 因此一律用无术语词表，绝不因为回放把 D1 门槛漏掉。
+ */
+export function replayCopy() {
+  return BASIC;
 }
 
 export const EARLY_TERMS = FORBIDDEN_EARLY;

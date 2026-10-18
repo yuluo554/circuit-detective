@@ -2,8 +2,8 @@
   "tool": "circuit-detective/verify",
   "version": 1,
   "pass": true,
-  "total": 9,
-  "executed": 9,
+  "total": 10,
+  "executed": 10,
   "checks": [
     {
       "name": "sim.cross",
@@ -36,8 +36,8 @@
         "solverRecheckTotal": 10000,
         "solverRecheckMismatch": 0,
         "solverRecheckPassRate": 1,
-        "p50ms": 0.132,
-        "p99ms": 0.459,
+        "p50ms": 0.176,
+        "p99ms": 0.73,
         "optimalHistogram": {
           "2": 3945,
           "3": 2979,
@@ -58,6 +58,24 @@
         "cases": 3,
         "mismatches": 0,
         "consistency": 1
+      },
+      "samples": []
+    },
+    {
+      "name": "share.roundtrip",
+      "skipped": false,
+      "pass": true,
+      "detail": {
+        "cases": 200,
+        "encoded": 200,
+        "consistency": 1,
+        "stepsMismatch": 0,
+        "netlistMismatch": 0,
+        "optimalMismatch": 0,
+        "tooLong": 0,
+        "tamperBlind": 0,
+        "maxCodeLength": 40,
+        "probesPerCase": 10
       },
       "samples": []
     },
@@ -120,8 +138,8 @@
       "skipped": false,
       "pass": true,
       "detail": {
-        "bytes": 92630,
-        "gzipBytes": 28190,
+        "bytes": 114516,
+        "gzipBytes": 34806,
         "externalLinks": 0,
         "missingBones": []
       },

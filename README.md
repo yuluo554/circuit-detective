@@ -14,11 +14,11 @@
 | M1 | 三值 unit-delay 仿真核（+ 独立第二实现交叉验证） | ✅ |
 | M2 | 种子生成器 + 求解器 | ✅ |
 | M3 | 门编辑器 / 提交校验 / 结算 / 逐层点亮 | ✅ 2026-10-18 |
-| M4 | 回放短码、回放视图、分享文案 | 🟡 内核已实现，UI 待接线 |
+| M4 | 回放短码、只读回放视图、分享文案 | ✅ 2026-10-18 |
 | M5 | `npm run verify` 全量、单文件构建、静态扫描 | 🟡 已可用，发布链路待收口 |
 | M6 | git tag + GitHub Release + 发布留档 | ⬜ |
 
-当前可玩：**拨杆 → 灯 → 拼装 → 提交 → 结算 → 逐层点亮**。前 3 关是"拼块 / 插口"话术，
+当前可玩：**拨杆 → 灯 → 拼装 → 提交 → 结算 → 逐层点亮 → 分享/回放**。前 3 关是"拼块 / 插口"话术，
 第 4 关起才出现 `NOT` / `AND` / `OR` 的正式名称（D1）。
 里程碑细节与已知未验证项见 `plan/05-里程碑与发布.md`。
 
@@ -30,6 +30,10 @@
 4. 提交后：对上了就结算（你的门数 / 最少门数 / 差值 / 试探次数），并把盒子逐层点亮；
    不对就告诉你**哪一行开关组合、哪盏灯、应亮多少、实际多少**。
 5. 门数按每个灯单独计：共用的拼块，每个灯各算一次。
+6. 结算后点「复制分享码」拿到一段短码（探测次数 + 门数差 + 回放码）。
+   把它拼成链接给别人：`<页面地址>#r=<短码>` 会进入**只读回放**——按步重播当时的试探顺序，
+   同时逐层点亮当时的黑盒；不能编辑、不重新计数。短码不可用（被截断/篡改/版本不同）时会明确提示，
+   不会静默进到别的关卡。
 
 ## 快速开始
 
@@ -44,8 +48,8 @@ npm run dev           # 本地预览 http://127.0.0.1:4173/
 可选的两条浏览器级校验（本机需有 Chromium；`verify:engines` 还需要 Firefox，缺则 SKIP）：
 
 ```bash
-npm run smoke          # headless 真实点击：拨杆 / 拼装 / 接线 / 拆线 / 提交 / 结算 / 揭示
-npm run verify:engines # 跨引擎一致性：Node + Chromium + Firefox 关卡 JSON 逐字节相同
+npm run smoke          # headless 真实点击：拨杆 / 拼装 / 接线 / 拆线 / 提交 / 结算 / 揭示 / 分享 / #r= 只读回放
+npm run verify:engines # 跨引擎一致性：Node + Chromium + Firefox 关卡 JSON 与回放步表逐字节相同
 ```
 
 直接用浏览器打开 `dist/index.html` 也可以（`file://` 可用，页面零网络请求）。
@@ -60,6 +64,7 @@ npm run verify:engines # 跨引擎一致性：Node + Chromium + Firefox 关卡 J
 | `fixtures.bytes` | fixture 重生成与入库件逐字节一致 |
 | `level.generation` | 10,000 seed：失败 0、多解/无解 0、求解器复核通过率 100%；打印 p50/p99 |
 | `replay.crossInstance` | 子进程解码重演与主进程逐项相同，一致率 100% |
+| `share.roundtrip` | 200 关：分享短码编码 → 解码 → 重演，步表/网表/最优门数差异 0；超长 0；篡改 0 漏判 |
 | `settlement.closure` | 400 关：编辑器可表达答案、结算字段一致、差值非负、失配反馈具体、最优解可达、探测可复算 |
 | `reveal.order` | 500 关：揭示层级严格递增、无空层、终态覆盖全部门 |
 | `copy.terms` | 前 3 关文案 0 命中"门 / NAND / AND / OR / NOT"，且扫描器有阳性对照 |
@@ -68,8 +73,9 @@ npm run verify:engines # 跨引擎一致性：Node + Chromium + Firefox 关卡 J
 
 耗时只报告，不参与判定（避免机器性能导致红绿抖动）。
 
-跨引擎一致（M2 DoD：≥2 引擎哈希相同）由 `npm run verify:engines` 单独跑：
-Node + Chromium + Firefox 各生成同一批 seed 的关卡 JSON，逐字节比对（实测 200 seed 差异 0）。
+跨引擎一致（M2 / M4 DoD）由 `npm run verify:engines` 单独跑：
+Node + Chromium + Firefox 各生成同一批 seed 的关卡 JSON，再用真实 `#r=<短码>` 路由进只读回放视图，
+把回放步表与揭示层与 Node 侧重算结果逐字节比对（实测 200 seed 关卡差异 0、回放步表差异 0）。
 Playwright 与浏览器**都不是项目依赖**：脚本按本机全局路径动态查找，找不到就 SKIP。
 
 ## 确定性口径

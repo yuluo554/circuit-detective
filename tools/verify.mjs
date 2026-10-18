@@ -17,6 +17,7 @@ import { referenceSimulate } from "../tests/reference/sim-reference.mjs";
 import { generateLevel } from "../src/core/generator.mjs";
 import { countedGates, optimalNetlist, solveOptimal } from "../src/core/solver.mjs";
 import { encodeRecord, decodeRecord } from "../src/core/replay.mjs";
+import { decodeReplay, sharePayload } from "../src/core/share.mjs";
 import { buildRevealPlan, revealSequence } from "../src/core/reveal.mjs";
 import { addGate, connectSignal, createDraft, toNetlist, validateDraft } from "../src/core/editor.mjs";
 import { judgeSubmission, recomputeProbes } from "../src/core/judge.mjs";
@@ -178,6 +179,96 @@ function checkReplay() {
     name: "replay.crossInstance",
     pass: mismatches === 0,
     detail: { cases: cases.length, mismatches, consistency: (cases.length - mismatches) / cases.length },
+    samples,
+  };
+}
+
+/**
+ * M4 分享闭环：结算记录 → 分享短码 → 解码 → 重演。
+ * 判定项：逐项一致率 100%、短码 ≤64、篡改一位必被识别（不许静默回放成别的关卡）。
+ */
+function checkShareRoundtrip() {
+  const CASES = 200;
+  const PROBE_SEQ = [0, 1, 2, 3, 15, 8, 7, 11, 4, 12];
+  let encoded = 0;
+  let stepsMismatch = 0;
+  let netlistMismatch = 0;
+  let optimalMismatch = 0;
+  let tooLong = 0;
+  let tamperBlind = 0;
+  let maxCodeLength = 0;
+  const samples = [];
+
+  for (let seed = 0; seed < CASES; seed += 1) {
+    const generated = generateLevel(seed);
+    if (!generated.ok) continue;
+    const { level } = generated;
+    const payload = sharePayload({ seed: level.seed, probes: PROBE_SEQ, netlist: level.netlist, difference: 0 });
+    if (!payload.ok) {
+      tooLong += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "share-degraded", message: payload.message });
+      continue;
+    }
+    encoded += 1;
+    maxCodeLength = Math.max(maxCodeLength, payload.code.length);
+    if (payload.code.length > 64) {
+      tooLong += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "code-too-long", length: payload.code.length });
+    }
+
+    const replay = decodeReplay(payload.code);
+    if (JSON.stringify(replay.steps) !== JSON.stringify(recomputeProbes(level, PROBE_SEQ))) {
+      stepsMismatch += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "steps-mismatch" });
+    }
+    if (JSON.stringify(replay.level.netlist) !== JSON.stringify(level.netlist)) {
+      netlistMismatch += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "netlist-mismatch" });
+    }
+    if (replay.optimal !== level.optimal) {
+      optimalMismatch += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "optimal-mismatch", got: replay.optimal, want: level.optimal });
+    }
+
+    // 篡改一位必须解码失败：宁可报错，也不能回放成另一个关卡。
+    const index = Math.floor(payload.code.length / 2);
+    const swapped = payload.code[index] === "A" ? "B" : "A";
+    const tampered = `${payload.code.slice(0, index)}${swapped}${payload.code.slice(index + 1)}`;
+    let recognised = false;
+    try {
+      decodeReplay(tampered);
+    } catch {
+      recognised = true;
+    }
+    if (!recognised) {
+      tamperBlind += 1;
+      if (samples.length < 5) samples.push({ seed, reason: "tamper-blind" });
+    }
+  }
+
+  const pass =
+    encoded === CASES &&
+    stepsMismatch === 0 &&
+    netlistMismatch === 0 &&
+    optimalMismatch === 0 &&
+    tooLong === 0 &&
+    tamperBlind === 0;
+
+  return {
+    name: "share.roundtrip",
+    pass,
+    detail: {
+      cases: CASES,
+      encoded,
+      consistency: encoded === 0 ? 0 : (encoded - stepsMismatch) / encoded,
+      stepsMismatch,
+      netlistMismatch,
+      optimalMismatch,
+      tooLong,
+      tamperBlind,
+      maxCodeLength,
+      probesPerCase: PROBE_SEQ.length,
+    },
     samples,
   };
 }
@@ -461,6 +552,7 @@ function run(requireList) {
     checkFixtureByteStability(),
     checkGeneration(),
     checkReplay(),
+    checkShareRoundtrip(),
     checkSettlement(),
     checkReveal(),
     checkTerms(),

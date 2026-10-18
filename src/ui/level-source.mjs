@@ -37,11 +37,53 @@ export function seedFromDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+/** `decodeURIComponent` 遇到孤立 `%` 会抛错；hash 是外部输入，这里降级为原样返回。 */
+function safeDecode(text) {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
+}
+
 export function seedFromLocation(location) {
-  const hash = location.hash || "";
+  const hash = (location && location.hash) || "";
   const match = /#?s=([^&]+)/.exec(hash);
   if (!match) return DEFAULT_SEED;
-  const decoded = decodeURIComponent(match[1]).trim();
+  const decoded = safeDecode(match[1]).trim();
   return decoded.length > 0 ? decoded : DEFAULT_SEED;
+}
+
+export const REPLAY_KEY = "r";
+export const SEED_KEY = "s";
+
+/** `#a=1&b=2` → Map（同名取第一个；不做 URL 解码）。 */
+function hashParams(hash) {
+  const params = new Map();
+  for (const chunk of String(hash || "").replace(/^#/, "").split("&")) {
+    const eq = chunk.indexOf("=");
+    if (eq <= 0) continue;
+    const key = chunk.slice(0, eq);
+    if (!params.has(key)) params.set(key, chunk.slice(eq + 1));
+  }
+  return params;
+}
+
+/**
+ * 路由：`#r=<短码>` 优先于 `#s=<种子>`（分享链接里两者可能同时存在）。
+ * 回放码为空串时按"没给"处理，退回种子路由。
+ * @returns {{kind: "replay", code: string}|{kind: "seed", seed: string}}
+ */
+export function routeFromLocation(location) {
+  const params = hashParams(location && location.hash);
+  const raw = params.get(REPLAY_KEY);
+  if (typeof raw === "string") {
+    const code = safeDecode(raw).trim();
+    if (code.length > 0) return { kind: "replay", code };
+  }
+  const seed = params.has(SEED_KEY)
+    ? safeDecode(params.get(SEED_KEY)).trim()
+    : "";
+  return { kind: "seed", seed: seed.length > 0 ? seed : seedFromLocation(location) };
 }
 

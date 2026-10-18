@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// 跨引擎一致性校验（M2 DoD：≥2 引擎哈希相同）。
+// 跨引擎一致性校验（M2 DoD：≥2 引擎哈希相同；M4 DoD：两浏览器重放同一短码逐项相同）。
 // 做法：起本地 http 源，让每个浏览器加载同一份 src/core/* 模块，逐 seed 生成关卡 JSON，
-// 与 Node 侧结果逐字节比对；再各算一遍探测序列的输出。
+// 与 Node 侧结果逐字节比对；再各算一遍探测序列的输出；最后用真实 `#r=<短码>` 路由
+// 进只读回放视图，读回放步表与 Node 侧重算结果比对。
 // Playwright 不是项目依赖（K16）：按本机全局路径动态 import，缺浏览器就 SKIP。
 //
 // 用法：node tools/cross-engine.mjs [--seeds 200]
@@ -10,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateLevel } from "../src/core/generator.mjs";
 import { recomputeProbes } from "../src/core/judge.mjs";
+import { decodeReplay, sharePayload } from "../src/core/share.mjs";
 import { startStaticServer } from "./serve.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,6 +25,40 @@ const PROBE_SEQUENCES = [
 ];
 
 const SEEDS = Array.from({ length: SEED_COUNT }, (_, seed) => String(seed));
+
+/** M4：回放短码的比对样例（种子文案固定，短码由同一份生成器产出）。 */
+const REPLAY_SEEDS = ["campaign/1", "campaign/2", "campaign/3", "2026-10-19", "replay/engine"];
+const REPLAY_PROBES = [0, 1, 2, 3, 15, 8, 7, 11, 4, 12];
+
+/** 把回放步表压成一行可逐字节比对的字符串（不依赖对象键顺序）。 */
+function projectSteps(steps) {
+  return steps
+    .map((row) => {
+      const outputs = Object.keys(row.outputs)
+        .map((name) => `${name}:${row.outputs[name]}`)
+        .join(",");
+      return `${row.vector}|${row.inputs.join("")}|${outputs}|${row.ok}|${row.stable}`;
+    })
+    .join(";");
+}
+
+const replayCodes = [];
+const nodeReplaySteps = [];
+const nodeReplayLevels = [];
+for (const seed of REPLAY_SEEDS) {
+  const generated = generateLevel(seed);
+  if (!generated.ok) {
+    replayCodes.push(null);
+    nodeReplaySteps.push(null);
+    nodeReplayLevels.push(null);
+    continue;
+  }
+  const payload = sharePayload({ seed, probes: REPLAY_PROBES, netlist: generated.level.netlist, difference: 0 });
+  replayCodes.push(payload.code);
+  nodeReplaySteps.push(projectSteps(recomputeProbes(generated.level, REPLAY_PROBES)));
+  const decoded = decodeReplay(payload.code);
+  nodeReplayLevels.push(JSON.stringify(decoded.level.netlist));
+}
 
 function candidateCorePaths() {
   const appData = process.env.APPDATA ?? "";
@@ -99,10 +135,35 @@ async function runEngine(name, launcher, options = {}) {
   page.on("pageerror", (error) => errors.push(String(error)));
   await page.goto(`${handle.origin}/index.html`, { waitUntil: "load" });
   const result = await page.evaluate(PAGE_JOB, { seeds: SEEDS, probeSequences: PROBE_SEQUENCES });
+
+  // M4：走真实 `#r=` 路由进回放视图（带 query 强制真正导航），读回放步表。
+  const replays = [];
+  for (const [index, code] of replayCodes.entries()) {
+    if (!code) {
+      replays.push(null);
+      continue;
+    }
+    await page.goto(`${handle.origin}/index.html?replay=${index}#r=${code}`, { waitUntil: "load" });
+    await page.waitForFunction(() => Boolean(window.__circuitDetective), null, { timeout: 5000 });
+    replays.push(
+      await page.evaluate(() => {
+        const snapshot = window.__circuitDetective.snapshot();
+        const replay = snapshot.replay;
+        if (!replay) return { steps: null, layers: null, probes: null, netlist: null };
+        return {
+          steps: replay.steps,
+          layers: replay.layers,
+          probes: replay.probes,
+          netlist: window.__circuitDetective.draftNetlist(),
+        };
+      }),
+    );
+  }
+
   await browser.close();
   notes.push(`${errors.length === 0 ? "PASS" : "FAIL"}  ${name} 页面无 JS 错误`);
   if (errors.length > 0) failures.push(`${name}:pageerror`);
-  return result;
+  return { ...result, replays };
 }
 
 // Node 侧基准
@@ -135,6 +196,26 @@ for (const engine of engines) {
   notes.push(
     `${same ? "PASS" : "FAIL"}  ${engine.name} 与 Node 逐字节一致 (levels ${SEEDS.length} / 差异 ${levelDiff}；探测序列 差异 ${probeDiff})`,
   );
+
+  let replayStepsDiff = 0;
+  let replayNetlistDiff = 0;
+  let replayMissing = 0;
+  for (const [index, code] of replayCodes.entries()) {
+    const got = engine.replays[index];
+    if (!code || !got || !got.steps) {
+      replayMissing += 1;
+      continue;
+    }
+    if (projectSteps(got.steps) !== nodeReplaySteps[index]) replayStepsDiff += 1;
+    if (JSON.stringify(got.netlist) !== nodeReplayLevels[index]) replayNetlistDiff += 1;
+  }
+  const replaySame = replayStepsDiff === 0 && replayNetlistDiff === 0 && replayMissing === 0;
+  if (!replaySame) {
+    failures.push(`${engine.name}:replayStepsDiff=${replayStepsDiff},replayMissing=${replayMissing}`);
+  }
+  notes.push(
+    `${replaySame ? "PASS" : "FAIL"}  ${engine.name} 重放同一短码逐项一致 (#r= 样例 ${replayCodes.length} / 步表差异 ${replayStepsDiff}；网表差异 ${replayNetlistDiff}；未进入回放 ${replayMissing})`,
+  );
 }
 
 if (engines.length >= 2) {
@@ -143,6 +224,20 @@ if (engines.length >= 2) {
   if (!same) failures.push(`engines-differ:${levelDiff}`);
   notes.push(
     `${same ? "PASS" : "FAIL"}  ${engines[0].name} vs ${engines[1].name} 关卡 JSON 逐字节一致（差异 ${levelDiff}）`,
+  );
+
+  const replayDiff = engines[0].replays.filter((item, index) => {
+    const other = engines[1].replays[index];
+    if (!item || !item.steps || !other || !other.steps) return true;
+    return projectSteps(item.steps) !== projectSteps(other.steps);
+  }).length;
+  const replayLayersDiff = engines[0].replays.filter(
+    (item, index) => !item || JSON.stringify(item.layers) !== JSON.stringify(engines[1].replays[index]?.layers),
+  ).length;
+  const replayAgree = replayDiff === 0 && replayLayersDiff === 0;
+  if (!replayAgree) failures.push(`engines-replay-differ:${replayDiff}`);
+  notes.push(
+    `${replayAgree ? "PASS" : "FAIL"}  ${engines[0].name} vs ${engines[1].name} 回放步表逐项一致（步表差异 ${replayDiff}；揭示层差异 ${replayLayersDiff}）`,
   );
 } else {
   notes.push(`SKIP  引擎两两比对：本机只跑起 ${engines.length} 个引擎`);

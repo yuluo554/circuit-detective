@@ -31,6 +31,19 @@ test("同一记录编码唯一（无盐、无时间戳）", () => {
   assert.equal(encodeRecord(record), encodeRecord(record));
 });
 
+test("seed 还原为无符号 64 bit：高位字的最高位为 1 时也不能变成负数", () => {
+  // 有符号 32 bit 读法会让高位置 1 的 seed 解码成负数（M4 实测缺陷）
+  const seeds = [0, 1, 2 ** 31, 2 ** 32 - 1, 2 ** 63, 2n ** 64n - 1n, "2026-10-19", "campaign/1", "campaign/2"];
+  for (const seed of seeds) {
+    const code = encodeRecord({ seed, probes: [1, 2], netlist });
+    const decoded = decodeRecord(code);
+    assert.equal(decoded.seed, normalizeSeed(seed), `seed ${String(seed)} 还原不一致`);
+    assert.ok(decoded.seed >= 0n, `seed 不得为负: ${decoded.seed}`);
+    assert.ok(decoded.seed < 2n ** 64n, `seed 超出 64 bit: ${decoded.seed}`);
+    assert.equal(decoded.seedText, String(normalizeSeed(seed)));
+  }
+});
+
 test("短码只含 URL 安全字符且不超过 64 字符", () => {
   const code = encodeRecord({ seed: "2026-10-19", probes: [0, 1], netlist });
   assert.match(code, /^[A-Za-z0-9_-]+$/);

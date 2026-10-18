@@ -126,7 +126,10 @@ export function encodeRecord(record) {
   out[body.length + 1] = checksum & 0xff;
   const code = toBase64Url(out);
   if (code.length > MAX_CODE_LENGTH) {
-    throw new Error(`本次操作过长，无法生成短码（${code.length} > ${MAX_CODE_LENGTH} 字符）`);
+    const error = new Error(`本次操作过长，无法生成短码（${code.length} > ${MAX_CODE_LENGTH} 字符）`);
+    error.code = "code-overflow"; // 调用方据此走降级分享文案，而不是把它当成普通失败
+    error.length = code.length;
+    throw error;
   }
   return code;
 }
@@ -146,8 +149,11 @@ export function decodeRecord(code) {
   if (version !== RECORD_VERSION) {
     throw new Error(`版本不兼容：短码版本 ${version}，当前只支持 ${RECORD_VERSION}`);
   }
-  const high = BigInt(reader.read(32));
-  const low = BigInt(reader.read(32));
+  // 32 bit 一次读会走 JS 的有符号位运算：高位置 1 时 `read(32)` 返回负数，
+  // BigInt(负数) 再拼接会得到负 seed（与 normalizeSeed 的无符号 64 位不一致）。
+  // 这里强制无符号（`>>> 0`），保证 seed 还原成 [0, 2^64)。
+  const high = BigInt(reader.read(32) >>> 0);
+  const low = BigInt(reader.read(32) >>> 0);
   const seed = (high << 32n) | low;
   const probeCount = reader.read(8);
   const probes = [];
