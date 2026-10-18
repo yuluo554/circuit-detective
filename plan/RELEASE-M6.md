@@ -50,12 +50,13 @@
 
 | # | 事项 | 状态 | 证据 / 说明 |
 | --- | --- | --- | --- |
-| ① | git tag（annotated） | ⬜ 待执行 | 目标分 `v0.1.0`；属对外动作，**待用户确认后**打 |
-| ② | GitHub Release（附件 = `dist/index.html` + `docs/verify-sample.txt`，sha256 登记正文） | ⬜ 待执行 | 无远端；需先建公开仓并 `git remote add` |
-| ③ | `plan/RELEASE-M6.md`（tag 前入库，两栏） | ✅ 本文件 | 落盘后 `RELEASE_DOC` 由 FAIL 转 PASS |
+| ① | git tag（annotated） | ✅ 2026-10-18 | `v0.1.0` → tag 对象 `76b56283d167`，指向 `56f633d`；已推远端（详见 §2.1） |
+| ② | GitHub Release（附件 = `dist/index.html` + `docs/verify-sample.txt`，sha256 登记正文） | ✅ 2026-10-18 | 公开仓 `yuluo554/circuit-detective`；两个附件下载后 sha256 与 §1.3 一致（详见 §2.2） |
+| ③ | `plan/RELEASE-M6.md`（tag 前入库，两栏） | ✅ 本文件 | tag 树里本文件已含第 ① 栏；第 ② 栏为 tag 后追加（§二） |
 
-离线门 `node tools/check-release.mjs` 的 `RELEASE_DOC` 项在 ①② 之前允许红（"发布还没做完"）；
-`TAG_PRESENT` / `REMOTE_RELEASE` 仅 `--online` 模式查，离线报 SKIP（SKIP 不计入 PASS）。
+离线门 `node tools/check-release.mjs` 在发布前只剩 `RELEASE_DOC` 一项红（"发布还没做完"），
+三件套落地后为 **PASS 7 / FAIL 0 / SKIP 2**；`TAG_PRESENT` / `REMOTE_RELEASE` 仅 `--online` 模式查，
+发布后 `--online` 为 **PASS 9 / FAIL 0 / SKIP 0**（§2.3）。
 
 ### 1.5 已知未验证项（不得写成已完成）
 
@@ -73,14 +74,17 @@
 
 > 与 M5 那批缺陷同源：**不是靠人复查，而是门禁/测试当场红**。这条还多一层——它红的时候恰好证明"上一棒的测试钉错了对象"。
 
-### 1.7 tag / Release 执行步骤（待用户确认后逐条执行）
+### 1.7 tag / Release 执行步骤（本棒已逐条执行；结果见 §二）
 
 ```bash
 # 0) 前置：本文件与版本收口已 commit，工作树干净
 node tools/check-release.mjs --pre-tag          # tag 前：RELEASE_DOC 可 PASS，TAG/REMOTE 报 SKIP
 
 # 1) 接远端（建公开仓后）
-git remote add origin https://github.com/<owner>/<repo>.git
+gh repo create circuit-detective --public --source=. --remote=origin \
+  --description "黑盒电路侦探：拨开关、看灯、反推黑盒里的最少门电路（纯前端单页，零依赖、零外链）"
+# 若本机 github.com:443 不可达（见下方环境坑），改用 SSH-over-443：
+#   git remote set-url origin ssh://git@ssh.github.com:443/<owner>/<repo>.git
 git push -u origin main
 
 # 2) tag（annotated）
@@ -93,39 +97,56 @@ gh release create v0.1.0 release/circuit-detective-0.1.0.html release/verify-sam
 
 # 4) 终态复核（无 FAIL；exit 3 = 环境缺失，既非 PASS 也非 FAIL）
 node tools/check-release.mjs --online
+
+# 5) 附件自证：下载回来重算 sha256，与 §1.3 逐一比对
+gh release download v0.1.0 --repo <owner>/<repo> && sha256sum *
 ```
 
-> 本机已具备 `gh`（已登录 `yuluo554`）；**建仓、push、tag、Release 都是对外动作，须用户明确确认后再动**。
+> 建仓、push、tag、Release 都是对外动作，**用户明确确认后才执行**（本棒已确认）。
+> **本机环境坑（本轮实测）**：`api.github.com` 可达（`gh` 各命令正常）、但 `github.com:443` 被网络阻断
+> （`git push` 超时、`curl https://github.com` 超时），而 `ssh.github.com:443` 可用——因此 `origin`
+> 用 SSH-over-443 而非 HTTPS。这是**本机网络**的限制，不是仓库配置问题。
 
 ## 二、tag 后追加
 
 > 本节在 tag / Release 落地后填写；tag 之前**留空**，不得预填（防"计划当事实"）。
+> 以下为 2026-10-18 实录，故本节的 commit **必然在 `v0.1.0` 之后**（tag 树里这一栏是空占位）。
 
 ### 2.1 本地 tag
 
 | 项 | 值 |
 | --- | --- |
-| tag 名 | `v0.1.0`（待填） |
-| annotated tag 对象 | 待填（`git rev-parse v0.1.0`） |
-| 指向 commit | 待填 |
+| tag 名 | `v0.1.0` |
+| 类型 | annotated（`git cat-file -t v0.1.0` = `tag`） |
+| tag 对象 | `76b56283d1673a0cdad609cb32b8bec772b6572f` |
+| 指向 commit | `56f633d1e22dae19065fc4e2ebec80b85d8ed12a`（"CI 首推 4/4 绿：回写实测结论（tag 前）"） |
+| 远端 | 已推（`git push origin v0.1.0`） |
 
 ### 2.2 GitHub Release
 
 | 项 | 值 |
 | --- | --- |
-| 仓库 | 待填 |
-| Release URL | 待填 |
-| 附件 1 | `circuit-detective-0.1.0.html`（sha256 待复核 = §1.3） |
-| 附件 2 | `verify-sample.txt`（sha256 待复核 = §1.3） |
-| 下载后重算 sha256 是否一致 | 待填 |
+| 仓库 | https://github.com/yuluo554/circuit-detective （公开） |
+| Release URL | https://github.com/yuluo554/circuit-detective/releases/tag/v0.1.0 |
+| 状态 | 已发布（`draft=false`） |
+| 附件 1 | `circuit-detective-0.1.0.html` — 114,516 字节，sha256 `4e7fdddce85f59a22fab5213f29ef819782583afaa56a702d32dc00e063bcda2` |
+| 附件 2 | `verify-sample.txt` — 1,547 字节，sha256 `b84a6cc96e034776eaebedd03ebcc006dd4d4c7e64ff3ab35ac511d59163a2c3` |
+| 下载后重算 sha256 | ✅ 两个附件均与 §1.3 逐一相同（`gh release download` → `sha256sum`） |
+| 正文 | 含两个附件的 sha256 对照表；口径与验证结论 |
 
 ### 2.3 `check-release.mjs --online` 终态
 
+```text
+PASS 9 / FAIL 0 / SKIP 0   （rc=0）
+```
+
 | 项 | 值 |
 | --- | --- |
-| 汇总 | 待填（目标：无 FAIL） |
-| `TAG_PRESENT` | 待填 |
-| `REMOTE_RELEASE` | 待填 |
+| 汇总 | **PASS 9 / FAIL 0 / SKIP 0**，rc=0 |
+| `TAG_PRESENT` | PASS（`local tag object 76b56283d167`） |
+| `REMOTE_RELEASE` | PASS（`v0.1.0 draft=false assets=circuit-detective-0.1.0.html,verify-sample.txt`） |
+
+> 至此 **M6 三件套（tag / Release / 留档）全部落地**，离线门与在线门均无 FAIL。
 
 ### 2.4 首推后回写
 

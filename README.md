@@ -16,7 +16,7 @@
 | M3 | 门编辑器 / 提交校验 / 结算 / 逐层点亮 | ✅ 2026-10-18 |
 | M4 | 回放短码、只读回放视图、分享文案 | ✅ 2026-10-18 |
 | M5 | `npm run verify` 全量、单文件构建、静态扫描 | ✅ 2026-10-18（CI 首推 4/4 绿） |
-| M6 | git tag + GitHub Release + 发布留档 | 🟡 留档已入库（`plan/RELEASE-M6.md`）；tag / Release 待确认 |
+| M6 | git tag + GitHub Release + 发布留档 | ✅ 2026-10-18（`v0.1.0` 已发布） |
 
 当前可玩：**拨杆 → 灯 → 拼装 → 提交 → 结算 → 逐层点亮 → 分享/回放**。前 3 关是"拼块 / 插口"话术，
 第 4 关起才出现 `NOT` / `AND` / `OR` 的正式名称（D1）。
@@ -36,6 +36,11 @@
    不会静默进到别的关卡。
 
 ## 快速开始
+
+**直接玩（不需要构建）**：下载 [v0.1.0 Release](https://github.com/yuluo554/circuit-detective/releases/tag/v0.1.0)
+里的 `circuit-detective-0.1.0.html`，用浏览器打开即可（单文件、`file://` 可用、零网络请求）。
+
+从源码跑：
 
 ```bash
 node --version        # 需要 >= 22（本项目在 v24.15.0 实测）
