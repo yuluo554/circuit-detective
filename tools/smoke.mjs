@@ -45,7 +45,9 @@ async function loadChromium() {
 
 const args = process.argv.slice(2);
 const shotFlag = args.indexOf("--shot");
-const shotPath = shotFlag >= 0 ? resolve(args[shotFlag + 1]) : join(ROOT, "docs", "smoke-shot.png");
+// 默认不写盘：截图的抗锯齿像素会随时序微小抖动，反复跑会把工作树弄脏。
+// 需要留证时显式 `--shot docs/smoke-shot.png`。
+const shotPath = shotFlag >= 0 ? resolve(args[shotFlag + 1]) : null;
 
 const chromium = await loadChromium();
 if (!chromium) {
@@ -223,8 +225,10 @@ await page.click("#next");
 const reloaded = await snapshot();
 check("关卡切换后可继续（无残留揭示态）", reloaded.reveal === null && reloaded.settlement === null);
 
-mkdirSync(dirname(shotPath), { recursive: true });
-await page.screenshot({ path: shotPath });
+if (shotPath) {
+  mkdirSync(dirname(shotPath), { recursive: true });
+  await page.screenshot({ path: shotPath });
+}
 await browser.close();
 
 process.stdout.write("冒烟 · headless Chromium\n");
@@ -232,5 +236,5 @@ process.stdout.write("=".repeat(48) + "\n");
 for (const line of notes) process.stdout.write(`${line}\n`);
 process.stdout.write("=".repeat(48) + "\n");
 process.stdout.write(`结论: ${failures.length === 0 ? "全绿" : `${failures.length} 项未通过`}\n`);
-process.stdout.write(`截图: ${shotPath}\n`);
+if (shotPath) process.stdout.write(`截图: ${shotPath}\n`);
 if (failures.length > 0) process.exitCode = 1;
