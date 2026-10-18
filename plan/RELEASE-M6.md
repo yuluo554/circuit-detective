@@ -1,0 +1,142 @@
+# RELEASE-M6 · 黑盒电路侦探 v0.1.0 发布留档
+
+> **用途**：M6 发布三件套的留档。本文件在 **tag 之前**写就并进 tag 树，因此分两栏：
+> `## 一、tag 前事实`（写文件时已发生、可当场复核）与 `## 二、tag 后追加`（tag / Release 落地后才有的对外事实）。
+> **纪律**：第一栏里的数字全部来自本机实跑；第二栏在 tag 之前**留空占位**，不得预填。
+> 门禁：`node tools/check-release.mjs` 要求本文件同时含两栏标题；离线项应常绿，`--online` 项在接远端后复查。
+
+## 一、tag 前事实
+
+### 1.1 版本与单一来源
+
+| 项 | 值 | 落点 |
+| --- | --- | --- |
+| 发布版本 | `0.1.0`（去掉 `-dev.0` 后缀） | `package.json` 的 `version` |
+| 代码内版本 | `0.1.0` | `src/core/version.mjs` 的 `VERSION` |
+| tag 名 | `v0.1.0` | `tools/check-release.mjs` 的 `TAG_PRESENT` 按此名查本地 tag |
+| 单一来源判定 | `VERSION_SINGLE_SOURCE` PASS（两处字面量一致） | `check-release.mjs` §version |
+
+版本号只此两处；改动必须**两处同时**（否则 `VERSION_SINGLE_SOURCE` 立刻红）。
+
+### 1.2 tag 前基线复测（2026-10-18，Windows + Node v24.15.0 / npm 11.12.1）
+
+| 门 / 命令 | 结果 |
+| --- | --- |
+| `npm test` | **133 项全通过**（0 fail），逐文件列出的 21 个测试文件 |
+| `npm run verify` | **10 段全 PASS**，rc=0（判定项 = 差异数 / 通过率 / 外链数；耗时只报告） |
+| `npm run verify:engines` | Node + Chromium（`chromium-1228`）+ Firefox（`firefox-1522`）：关卡 JSON 200 seed 差异 0；`#r=` 回放 5 例步表差异 0 / 揭示层差异 0；两引擎互相一致 |
+| `node tools/smoke.mjs` | **52 项全绿**（含 `#r=` 只读回放、`#r=` 优先于 `#s=`、篡改码报错；真实点击） |
+| `node tools/gen-fixtures.mjs --check` | fixture 重生成与入库件逐字节一致 |
+| `node tools/check-release.mjs`（离线） | 见 §1.4；本文件落盘后应为 PASS 7 / FAIL 0 / SKIP 2（SKIP 为 tag / 远端两项，离线模式不查） |
+
+`verify` 10 段：`sim.cross`、`fixtures.bytes`、`level.generation`、`replay.crossInstance`、`share.roundtrip`、
+`settlement.closure`、`reveal.order`、`copy.terms`、`campaign.early`、`build.static`（快照见 `docs/verify-sample.txt`）。
+
+### 1.3 交付产物与 sha256
+
+附件口径取 **D13 / Q5**：**只给**单文件产物 + verify 样例，不给源码包（源码 zipball 由 GitHub 自动生成，不能替代"打开即玩的那一个文件"）。
+
+| 附件 | 大小 | sha256 | 本地副本 |
+| --- | --- | --- | --- |
+| `dist/index.html` | 114,516 字节（gzip 34,806，外链 0，15 模块） | `4e7fdddce85f59a22fab5213f29ef819782583afaa56a702d32dc00e063bcda2` | `release/circuit-detective-0.1.0.html` |
+| `docs/verify-sample.txt` | — | `b84a6cc96e034776eaebedd03ebcc006dd4d4c7e64ff3ab35ac511d59163a2c3` | `release/verify-sample.txt` |
+
+- `dist/` **不入仓**（`.gitignore`；`check-release.mjs` 的 `NO_ARTIFACTS_TRACKED` 守卫）；产物由 Release 附件承载。
+- `release/` 同样入 `.gitignore`（本地留副本，不随仓库走）；sha256 以上表为准，登记进 Release 正文。
+- 构建逐字节确定（K33）：同源码两次 `npm run build` 一致；`index.html` 的 CRLF 归一为 LF。
+
+### 1.4 M6 DoD 三件套
+
+| # | 事项 | 状态 | 证据 / 说明 |
+| --- | --- | --- | --- |
+| ① | git tag（annotated） | ⬜ 待执行 | 目标分 `v0.1.0`；属对外动作，**待用户确认后**打 |
+| ② | GitHub Release（附件 = `dist/index.html` + `docs/verify-sample.txt`，sha256 登记正文） | ⬜ 待执行 | 无远端；需先建公开仓并 `git remote add` |
+| ③ | `plan/RELEASE-M6.md`（tag 前入库，两栏） | ✅ 本文件 | 落盘后 `RELEASE_DOC` 由 FAIL 转 PASS |
+
+离线门 `node tools/check-release.mjs` 的 `RELEASE_DOC` 项在 ①② 之前允许红（"发布还没做完"）；
+`TAG_PRESENT` / `REMOTE_RELEASE` 仅 `--online` 模式查，离线报 SKIP（SKIP 不计入 PASS）。
+
+### 1.5 已知未验证项（不得写成已完成）
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| CI 实跑 | ⬜ 未推送 | 无远端；`.github/workflows/ci.yml` 只做过本地 YAML 解析 + 按步手工复跑，见 `plan/05` §八 |
+| 移动端布局 | ⬜ 未做 | 首期只保证桌面（`data/README.md` §1.4） |
+| 断网专项验证 | 🟡 未专项 | 冒烟下页面仅 1 次文档请求、外链 0，但未做断网场景专项 |
+| 跨引擎 | ✅ 本机实跑 | 见 §1.2；Firefox 由本机 playwright 缓存提供，**不进项目依赖**，缺缓存时该命令 SKIP |
+
+### 1.6 本轮修掉的缺陷
+
+| 缺陷 | 症状 | 处理 |
+| --- | --- | --- |
+| **发布门测试把"瞬态"当契约** | `tests/release-gate.test.mjs` 的"`--pre-tag` 时缺失留档报 SKIP"直接跑真实仓库，**预设了 `plan/RELEASE-M6.md` 不存在**。本轮把留档写出来后，该测试立刻红（门报 `PASS` 而非 `SKIP`）——它测的其实是"M6 还没做"，不是门的模式语义 | 给门加 `RELEASE_DOC_PATH` 环境变量（默认 `plan/RELEASE-M6.md`，见 K39），测试用"不存在的路径"**主动构造**缺档态：缺档 + `--pre-tag` → SKIP、缺档 + 离线 → FAIL、有档 → PASS 两栏齐备。三条断言与 M6 进度解耦 |
+
+> 与 M5 那批缺陷同源：**不是靠人复查，而是门禁/测试当场红**。这条还多一层——它红的时候恰好证明"上一棒的测试钉错了对象"。
+
+### 1.7 tag / Release 执行步骤（待用户确认后逐条执行）
+
+```bash
+# 0) 前置：本文件与版本收口已 commit，工作树干净
+node tools/check-release.mjs --pre-tag          # tag 前：RELEASE_DOC 可 PASS，TAG/REMOTE 报 SKIP
+
+# 1) 接远端（建公开仓后）
+git remote add origin https://github.com/<owner>/<repo>.git
+git push -u origin main
+
+# 2) tag（annotated）
+git tag -a v0.1.0 -m "黑盒电路侦探 v0.1.0"
+git push origin v0.1.0
+
+# 3) Release（附件 = 单文件产物 + verify 样例，sha256 写进正文）
+gh release create v0.1.0 release/circuit-detective-0.1.0.html release/verify-sample.txt \
+  --title "黑盒电路侦探 v0.1.0" --notes-file <发布正文>
+
+# 4) 终态复核（无 FAIL；exit 3 = 环境缺失，既非 PASS 也非 FAIL）
+node tools/check-release.mjs --online
+```
+
+> 本机已具备 `gh`（已登录 `yuluo554`）；**建仓、push、tag、Release 都是对外动作，须用户明确确认后再动**。
+
+## 二、tag 后追加
+
+> 本节在 tag / Release 落地后填写；tag 之前**留空**，不得预填（防"计划当事实"）。
+
+### 2.1 本地 tag
+
+| 项 | 值 |
+| --- | --- |
+| tag 名 | `v0.1.0`（待填） |
+| annotated tag 对象 | 待填（`git rev-parse v0.1.0`） |
+| 指向 commit | 待填 |
+
+### 2.2 GitHub Release
+
+| 项 | 值 |
+| --- | --- |
+| 仓库 | 待填 |
+| Release URL | 待填 |
+| 附件 1 | `circuit-detective-0.1.0.html`（sha256 待复核 = §1.3） |
+| 附件 2 | `verify-sample.txt`（sha256 待复核 = §1.3） |
+| 下载后重算 sha256 是否一致 | 待填 |
+
+### 2.3 `check-release.mjs --online` 终态
+
+| 项 | 值 |
+| --- | --- |
+| 汇总 | 待填（目标：无 FAIL） |
+| `TAG_PRESENT` | 待填 |
+| `REMOTE_RELEASE` | 待填 |
+
+### 2.4 首推后回写
+
+- [ ] `plan/05` §五「CI 任一项失败即红」由 ⬜ 翻成实测结论；§七「CI 实跑」按真实 workflow 结果改写。
+- [ ] 若首推后重跑 `verify` 导致 `dist/index.html` 字节变化，同步 §1.3 的 sha256 与附件（发布后不再改源码）。
+
+## 三、M6 增补口径（K 编号，接 `plan/HANDOFF-M5.md` §5 的 K31–K35）
+
+| 编号 | 口径 | 落点 |
+| --- | --- | --- |
+| **K36** | 发布附件**只**给 `dist/index.html` + `docs/verify-sample.txt`；不给源码包，不给目录压缩包；sha256 登记在 Release 正文（不写进包内） | 本文件 §1.3 / `tools/check-release.mjs` |
+| **K37** | 版本号单一来源 = `package.json` 的 `version` 与 `src/core/version.mjs` 的 `VERSION`，必须一致；tag 名 = `v` + 该版本 | `tools/check-release.mjs` 的 `VERSION_SINGLE_SOURCE` / `TAG_PRESENT` |
+| **K38** | `plan/RELEASE-M6.md` 必须两栏齐备（`## 一、tag 前事实` / `## 二、tag 后追加`）且在 tag 前入库；第二栏 tag 前留空 | `tools/check-release.mjs` 的 `RELEASE_DOC` |
+| **K39** | 发布留档路径由 `RELEASE_DOC_PATH` 决定（默认 `plan/RELEASE-M6.md`）；该变量是**测试用 seam**，让"缺档报 SKIP / 报 FAIL"两条模式语义在留档存在之后仍可被构造和断言 | `tools/check-release.mjs` / `tests/release-gate.test.mjs` |

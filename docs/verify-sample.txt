@@ -13,8 +13,8 @@ PASS  level.generation
       solverRecheckTotal: 10000
       solverRecheckMismatch: 0
       solverRecheckPassRate: 1
-      p50ms: 0.176
-      p99ms: 0.73
+      p50ms: 0.171
+      p99ms: 0.714
       optimalHistogram: {"2":3945,"3":2979,"4":1701,"5":850,"6":368,"7":115,"8":42}
 PASS  replay.crossInstance
       cases: 3

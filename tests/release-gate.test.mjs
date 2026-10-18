@@ -7,14 +7,21 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const GATE = join(ROOT, "tools", "check-release.mjs");
 
-function runGate(args = []) {
+function runGate(args = [], env = {}) {
   try {
-    const stdout = execFileSync(process.execPath, [GATE, ...args], { cwd: ROOT, encoding: "utf8" });
+    const stdout = execFileSync(process.execPath, [GATE, ...args], {
+      cwd: ROOT,
+      encoding: "utf8",
+      env: { ...process.env, ...env },
+    });
     return { code: 0, stdout };
   } catch (error) {
     return { code: error.status ?? -1, stdout: String(error.stdout ?? "") };
   }
 }
+
+/** 指向一个不存在的留档路径——把"缺档"这一瞬态变成可重复构造的输入。 */
+const ABSENT_DOC = { RELEASE_DOC_PATH: "plan/__absent-release-doc__.md" };
 
 test("发布门：离线模式每项恰好一行结论，SKIP 与 PASS 分开计数", () => {
   const { stdout } = runGate();
@@ -32,8 +39,20 @@ test("发布门：离线模式不把网络项写成 PASS", () => {
 });
 
 test("发布门：--pre-tag 时缺失发布留档报 SKIP 而不是 FAIL", () => {
-  const { stdout } = runGate(["--pre-tag"]);
+  const { stdout } = runGate(["--pre-tag"], ABSENT_DOC);
   assert.match(stdout, /^SKIP\s{2}RELEASE_DOC/m);
+});
+
+test("发布门：离线模式缺失发布留档报 FAIL（缺档不得伪装成通过）", () => {
+  const { stdout } = runGate([], ABSENT_DOC);
+  assert.match(stdout, /^FAIL\s{2}RELEASE_DOC/m);
+});
+
+test("发布门：留档存在时 pre-tag 与离线都据实报 PASS（两栏齐备）", () => {
+  const preTag = runGate(["--pre-tag"]);
+  const offline = runGate();
+  assert.match(preTag.stdout, /^PASS\s{2}RELEASE_DOC\s+两栏: true\/true/m);
+  assert.match(offline.stdout, /^PASS\s{2}RELEASE_DOC\s+两栏: true\/true/m);
 });
 
 test("发布门：检查项数量与结论行数对账", () => {

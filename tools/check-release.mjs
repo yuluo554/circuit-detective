@@ -14,6 +14,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = new Set(process.argv.slice(2));
 const MODE = args.has("--online") ? "online" : args.has("--pre-tag") ? "pre-tag" : "offline";
+// 发布留档路径（可用环境变量覆盖：让"缺档报 SKIP / 报 FAIL"这两条模式语义能在
+// 留档已存在之后继续被测；见 tests/release-gate.test.mjs）。
+const RELEASE_DOC_PATH = process.env.RELEASE_DOC_PATH ?? "plan/RELEASE-M6.md";
 
 class EnvironmentMissing extends Error {}
 class NotAchieved extends Error {}
@@ -99,12 +102,12 @@ function checkNoLocalPaths() {
 }
 
 function checkReleaseDoc() {
-  const text = readIfExists("plan/RELEASE-M6.md");
+  const text = readIfExists(RELEASE_DOC_PATH);
   if (!text) {
     if (MODE === "pre-tag") {
       add("RELEASE_DOC", "SKIP", "tag 前尚未创建");
     } else {
-      add("RELEASE_DOC", "FAIL", "plan/RELEASE-M6.md 缺失");
+      add("RELEASE_DOC", "FAIL", `${RELEASE_DOC_PATH} 缺失`);
     }
     return;
   }
