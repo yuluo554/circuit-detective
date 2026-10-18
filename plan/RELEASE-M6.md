@@ -180,9 +180,9 @@ PASS 9 / FAIL 0 / SKIP 0   （rc=0）
 | 入仓工具在无 `.git` 树里也能跑 | 不适用 | 本仓无发布期入仓工具（无打包器、无历史扫描脚本）；`tools/` 均为开发期脚本 |
 | README 提到的附件名必须真在 Release 里 | 实现 | README 的 Release 链接 + `gh release view --json assets` 两种形态（`circuit-detective-0.1.0.html` / `verify-sample.txt`）核对过名实 |
 | 附件与校验和 / 复核三步 | 部分实现 | 已做"真下载 → sha256 复算 → 与留档件比对"；**未**上传 `SHA256SUMS` 伴随文件（K36 口径为 sha256 写进 Release 正文） |
-| 已发布窗口关闭后的缺陷处置 | 实现 | 本版无发布后缺陷；tag 前后只追加文档面提交（§2.4） |
+| 已发布窗口关闭后的缺陷处置 | 实现 | 本版无发布后缺陷；tag 后的提交只含文档面 + 一处测试面（见下条实测更正） |
 | DoD 打勾只能在事实落地后 | 实现 | §1.4 三件套 ①② 在 tag 前为 ⬜，落地后翻 ✅ 并指向 §二 |
-| tag 之后只允许文档面提交 | 实现 | `git diff --name-only v0.1.0..HEAD` 只含 `plan/`（本次复盘提交亦同） |
+| tag 之后只允许文档面提交 | **部分实现（实测有偏差，如实记）** | `git diff --name-only v0.1.0..HEAD` 实际是 **`plan/` + `README.md` + `tests/handoff-gate.test.mjs`** 三类。前两类属文档面（合规）；**第三类不是**——它是"交接单守门扩到 M6"的**测试面**改动（提交 `8386a63`）。**发布物未受影响**：`git diff v0.1.0..HEAD -- src/` 为空，`dist/index.html` 仍是 §1.3 的 `4e7fddd…`（已从 tag 树重建 `cmp` 验证）。但**"只含 `plan/`"这句当时写得比事实强**，按实测更正；不重写历史、不重打 tag |
 | annotated tag 两端一致 = **对象哈希**一致 | 实现（本轮补查） | 本地 `76b56283d167…` == 远端 `git/ref/tags/v0.1.0` 的 `object.sha` |
 | push 数 = run 数对账 | 实现（本轮补查） | 6 次 push ↔ 6 条 run（含 tag run），按 `event/headBranch/headSha/conclusion` 逐条配对，全 success |
 | 脱敏：提交身份 + **tagger 邮箱** | 实现（本轮补查） | `git log --format='%ae'` 去重 + tag 对象 tagger，**全部为 GitHub noreply 邮箱** |
