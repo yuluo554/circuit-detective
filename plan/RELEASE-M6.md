@@ -27,7 +27,8 @@
 | `npm run verify:engines` | Node + Chromium（`chromium-1228`）+ Firefox（`firefox-1522`）：关卡 JSON 200 seed 差异 0；`#r=` 回放 5 例步表差异 0 / 揭示层差异 0；两引擎互相一致 |
 | `node tools/smoke.mjs` | **52 项全绿**（含 `#r=` 只读回放、`#r=` 优先于 `#s=`、篡改码报错；真实点击） |
 | `node tools/gen-fixtures.mjs --check` | fixture 重生成与入库件逐字节一致 |
-| `node tools/check-release.mjs`（离线） | 见 §1.4；本文件落盘后应为 PASS 7 / FAIL 0 / SKIP 2（SKIP 为 tag / 远端两项，离线模式不查） |
+| `node tools/check-release.mjs`（离线） | 见 §1.4；本文件落盘后为 PASS 7 / FAIL 0 / SKIP 2（SKIP 为 tag / 远端两项，离线模式不查） |
+| GitHub Actions（首推 `main`） | **4/4 绿**：`verify (windows-latest, node 22/24)`、`verify (ubuntu-latest, node 22/24)`；run `39138019748`。步骤与本地等价校验一致；`smoke` / `verify:engines` 刻意不进 CI（需仓外 playwright 缓存） |
 
 `verify` 10 段：`sim.cross`、`fixtures.bytes`、`level.generation`、`replay.crossInstance`、`share.roundtrip`、
 `settlement.closure`、`reveal.order`、`copy.terms`、`campaign.early`、`build.static`（快照见 `docs/verify-sample.txt`）。
@@ -60,7 +61,6 @@
 
 | 项 | 状态 | 说明 |
 | --- | --- | --- |
-| CI 实跑 | ⬜ 未推送 | 无远端；`.github/workflows/ci.yml` 只做过本地 YAML 解析 + 按步手工复跑，见 `plan/05` §八 |
 | 移动端布局 | ⬜ 未做 | 首期只保证桌面（`data/README.md` §1.4） |
 | 断网专项验证 | 🟡 未专项 | 冒烟下页面仅 1 次文档请求、外链 0，但未做断网场景专项 |
 | 跨引擎 | ✅ 本机实跑 | 见 §1.2；Firefox 由本机 playwright 缓存提供，**不进项目依赖**，缺缓存时该命令 SKIP |
@@ -129,8 +129,10 @@ node tools/check-release.mjs --online
 
 ### 2.4 首推后回写
 
-- [ ] `plan/05` §五「CI 任一项失败即红」由 ⬜ 翻成实测结论；§七「CI 实跑」按真实 workflow 结果改写。
-- [ ] 若首推后重跑 `verify` 导致 `dist/index.html` 字节变化，同步 §1.3 的 sha256 与附件（发布后不再改源码）。
+- [x] 2026-10-18 首推后：`plan/05` §五翻为实测结论、§七「CI 实跑」写入 4/4 绿（run `39138019748`）、§八改为实跑说明；
+  `plan/00` 台账与状态表、README 状态行一并按实测改写（本次回写 commit 在 tag 之前，故随 tag 树入库）。
+- [x] 首推不改源码：`dist/index.html` 仍为 114,516 字节，sha256 与 §1.3 一致（tag 前复核）。
+- [ ] 若 tag 后重跑 `verify` 导致产物字节变化，**不予**修改附件（发布后不再改源码）；如有异常另开勘误。
 
 ## 三、M6 增补口径（K 编号，接 `plan/HANDOFF-M5.md` §5 的 K31–K35）
 
