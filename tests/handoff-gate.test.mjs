@@ -15,13 +15,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * 这里把它变成常驻断言：里程碑标 ✅ 就必须有对应交接单，且交接单得有该有的部件。
  *
  * M0 不要求：它的收尾记录就是计划套件本身 + `plan/05` §一 的出口证据。
+ *
+ * M6 扩展（2026-10-18，M6 完成后）：M6 翻 ✅ 后同样要有交接单——否则就是重犯
+ * "产物分批落地、没人记得写交接单"这件事（M5 的原病）。**M6 是收尾棒**，它的 §9 指向维护/二期。
  */
-const REQUIRED = [1, 2, 3, 4, 5];
+const REQUIRED = [1, 2, 3, 4, 5, 6];
 
 /** 格式钉死（`plan/00` §一 引用 `HANDOFF-M3.md` §5 的九段式）之后写的交接单要更完整。 */
 const FORMAT_FREEZE_FROM = 3;
 
-test("交接单守门：M1–M5 每个里程碑都有自己的收尾交接单", () => {
+test("交接单守门：M1–M6 每个里程碑都有自己的收尾交接单", () => {
   const missing = REQUIRED.filter((k) => !existsSync(join(ROOT, "plan", `HANDOFF-M${k}.md`)));
   assert.deepEqual(
     missing,
@@ -43,7 +46,7 @@ test("交接单守门：标题对得上里程碑号，且六件套齐备", () =>
   }
 });
 
-test("交接单守门：plan/05 标 ✅ 的里程碑（M1–M5）都能在状态表里对上", () => {
+test("交接单守门：plan/05 标 ✅ 的里程碑（M1–M6）都能在状态表里对上", () => {
   const lines = readFileSync(join(ROOT, "plan", "05-里程碑与发布.md"), "utf8").split("\n");
   for (const k of REQUIRED) {
     const row = lines.find((line) => line.startsWith(`| **M${k} `));
@@ -52,7 +55,7 @@ test("交接单守门：plan/05 标 ✅ 的里程碑（M1–M5）都能在状态
   }
 });
 
-test("交接单守门：plan/00 的索引行把 M1–M5 都记为 ✅", () => {
+test("交接单守门：plan/00 的索引行把 M1–M6 都记为 ✅", () => {
   const row = readFileSync(join(ROOT, "plan", "00-README总览.md"), "utf8")
     .split("\n")
     .find((line) => line.startsWith("| `plan/HANDOFF-M<k>.md`"));
