@@ -1,0 +1,23 @@
+{
+  "name": "circuit-detective",
+  "version": "0.1.0-dev.0",
+  "private": true,
+  "type": "module",
+  "description": "黑盒电路侦探：拨开关、看灯、反推黑盒里的最少门电路",
+  "license": "MIT",
+  "author": "yuluo554",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node tools/serve.mjs",
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/rng.test.mjs tests/netlist.test.mjs tests/sim.test.mjs tests/solver.test.mjs tests/generator.test.mjs tests/sim-cross.test.mjs tests/replay.test.mjs tests/build.test.mjs tests/dist-scan.test.mjs tests/release-gate.test.mjs tests/test-manifest.test.mjs",
+    "verify": "node tools/verify.mjs",
+    "verify:core": "node tools/verify.mjs --require sim.cross,fixtures.bytes,level.generation,replay.crossInstance",
+    "fixtures": "node tools/gen-fixtures.mjs",
+    "fixtures:check": "node tools/gen-fixtures.mjs --check"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

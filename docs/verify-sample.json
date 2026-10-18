@@ -1,0 +1,77 @@
+{
+  "tool": "circuit-detective/verify",
+  "version": 1,
+  "pass": true,
+  "total": 5,
+  "executed": 5,
+  "checks": [
+    {
+      "name": "sim.cross",
+      "skipped": false,
+      "pass": true,
+      "detail": {
+        "fixtures": 1000,
+        "comparisons": 9540,
+        "differences": 0
+      },
+      "samples": []
+    },
+    {
+      "name": "fixtures.bytes",
+      "skipped": false,
+      "pass": true,
+      "detail": {
+        "identical": true
+      },
+      "samples": []
+    },
+    {
+      "name": "level.generation",
+      "skipped": false,
+      "pass": true,
+      "detail": {
+        "seeds": 10000,
+        "failed": 0,
+        "ambiguous": 0,
+        "solverRecheckTotal": 10000,
+        "solverRecheckMismatch": 0,
+        "solverRecheckPassRate": 1,
+        "p50ms": 0.168,
+        "p99ms": 0.739,
+        "optimalHistogram": {
+          "2": 4097,
+          "3": 3004,
+          "4": 1665,
+          "5": 768,
+          "6": 321,
+          "7": 106,
+          "8": 39
+        }
+      },
+      "samples": []
+    },
+    {
+      "name": "replay.crossInstance",
+      "skipped": false,
+      "pass": true,
+      "detail": {
+        "cases": 3,
+        "mismatches": 0,
+        "consistency": 1
+      },
+      "samples": []
+    },
+    {
+      "name": "build.static",
+      "skipped": false,
+      "pass": true,
+      "detail": {
+        "bytes": 38370,
+        "gzipBytes": 13359,
+        "externalLinks": 0,
+        "missingBones": []
+      },
+      "samples": []
+    }
+  ]
+}

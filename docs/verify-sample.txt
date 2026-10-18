@@ -1,0 +1,30 @@
+黑盒电路侦探 · verify
+================================================
+PASS  sim.cross
+      fixtures: 1000
+      comparisons: 9540
+      differences: 0
+PASS  fixtures.bytes
+      identical: true
+PASS  level.generation
+      seeds: 10000
+      failed: 0
+      ambiguous: 0
+      solverRecheckTotal: 10000
+      solverRecheckMismatch: 0
+      solverRecheckPassRate: 1
+      p50ms: 0.163
+      p99ms: 0.676
+      optimalHistogram: {"2":4097,"3":3004,"4":1665,"5":768,"6":321,"7":106,"8":39}
+PASS  replay.crossInstance
+      cases: 3
+      mismatches: 0
+      consistency: 1
+PASS  build.static
+      bytes: 38370
+      gzipBytes: 13359
+      externalLinks: 0
+      missingBones: []
+================================================
+结论: 全绿
+耗时只报告不参与判定；判定项 = 差异数 / 通过率 / 外链数。

@@ -1,0 +1,11 @@
+# 源码行尾统一；发布产物与测试快照的字节由文件自身决定
+* text=auto eol=lf
+
+# 位级冻结或二进制形态本身是被测对象 -> git 不许碰
+*.json -text
+*.png binary
+*.jpg binary
+*.gif binary
+*.woff2 binary
+*.zip binary
+*.tar.gz binary
