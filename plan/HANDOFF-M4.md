@@ -108,6 +108,8 @@ node tools/check-release.mjs → 离线模式 PASS 5 / FAIL 2 / SKIP 2
   脚本**逐文件列出**；新增测试文件必须同步改这一处（`tests/test-manifest.test.mjs` 会断言数量一致）。
 - **`git remote` 为空**：所有"CI"表述只能写"本地等价校验（未接远端）"。
 - **`docs/smoke-shot.png` 是 1280×1040 的 headless 截图**（~135KB，可随仓入库）。
+  冒烟默认**不写截图**（像素抗锯齿会随时序抖动、反复跑会脏工作树）；需要留证时用
+  `node tools/smoke.mjs --shot docs/smoke-shot.png`。
 
 ## 6. DoD 逐项 checklist
 
@@ -154,7 +156,7 @@ npm run verify -- --out docs/verify-sample.json
 npm run verify:core
 npm run build
 node tools/check-dist.mjs
-node tools/smoke.mjs            # 需要本机 Chromium；无则 SKIP
+node tools/smoke.mjs            # 需要本机 Chromium；无则 SKIP；默认不写截图
 node tools/gen-fixtures.mjs --check
 node tools/check-release.mjs
 node tools/check-release.mjs --pre-tag
