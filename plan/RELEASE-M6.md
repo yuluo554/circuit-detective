@@ -231,7 +231,8 @@ matrix `os: [ubuntu-latest, windows-latest]` × `node: ["22", "24"]` 与 `permis
 | --- | --- |
 | 版本 | `0.1.1`（`package.json` 与 `src/core/version.mjs` **两处同时**） |
 | 门校验 | `VERSION_SINGLE_SOURCE` → `package=0.1.1 code=0.1.1` PASS |
-| tag | `v0.1.1`（annotated），由 `package.json.version` 派生（`expectedTag()`） |
+| tag | `v0.1.1`（annotated），对象 `b71079f9bc73` → commit `25c888f`，已推远端 |
+| 命名规则 | tag 名由 `package.json.version` 派生（`expectedTag()`），**不是硬编码** |
 | 旧 tag | `v0.1.0`（对象 `76b56283d167` → `56f633d`）**未移动、未删除**，其附件保持原样 |
 
 ### 5.2 本轮修掉的门缺陷（假绿）
@@ -260,15 +261,29 @@ matrix `os: [ubuntu-latest, windows-latest]` × `node: ["22", "24"]` 与 `permis
 
 ```text
 npm test                     → ℹ tests 138 / pass 138 / fail 0        （137 → 138：+1 防假绿）
-npm run verify               → 结论: 全绿（10 段）
+npm run verify               → 结论: 全绿（10 段）；build.static bytes 114516 / gzip 34806 / externalLinks 0
 npm run fixtures:check       → fixture 校验通过: 1000 条，字节级一致
-npm run layout               → 结论: 全绿
+npm run layout               → 结论: 全绿（8 项 PASS）
 node tools/check-dist.mjs    → PASS dist: 114516 字节 / gzip 34806 字节 / 外链 0
 npm run smoke                → 结论: 全绿（含"篡改一位"负控）
 npm run build                → 114516 字节 / sha256 4e7fddd…
 node tools/check-release.mjs           → PASS 7 / FAIL 0 / SKIP 2，exit 0
-node tools/check-release.mjs --online  → PASS 9 / FAIL 0 / SKIP 0，exit 0（查的是 v0.1.1）
+node tools/check-release.mjs --online  → PASS 9 / FAIL 0 / SKIP 0，exit 0
+   TAG_PRESENT    → local tag object b71079f9bc73 (v0.1.1)
+   REMOTE_RELEASE → v0.1.1 draft=false assets=circuit-detective-0.1.1.html,verify-sample.txt
 ```
+
+**tag 后真下载三方对撞**（`gh release download v0.1.1` → 重算 → 与 GitHub digest、本地 staging 副本比对）：
+
+| 附件 | 大小 | 下载重算 sha256 | GitHub digest | 本地副本 |
+| --- | --- | --- | --- | --- |
+| `circuit-detective-0.1.1.html` | 114,516 B | `4e7fdddce85f59a22fab5213f29ef819782583afaa56a702d32dc00e063bcda2` | 同 | 同 |
+| `verify-sample.txt` | 1,547 B | `d95d6e5ff85b04c4d2765071abc85f7cf66058dd950ead421f494a86fd7b7fcb` | 同 | 同 |
+
+Release 创建时间 `2026-10-20T12:24:33Z`，`draft=false`、`prerelease=false`。
+`v0.1.0` 的 Release 与两个附件经复查**未变**（digest 仍是 `4e7fddd…` / `b84a6cc9…`）。
+
+CI（tag 前的最后一次 push，`25c888f`）：run **`39421814934`** 四腿全 success。
 
 `docs/verify-sample.{txt,json}` 按 K32 重刷（`node tools/verify.mjs --out docs/verify-sample.json > docs/verify-sample.txt`）。
 与 v0.1.0 的样例相比**只有计时字段变化**（`p50ms 0.171→0.174`、`p99ms 0.714→0.756`），
@@ -282,3 +297,13 @@ node tools/check-release.mjs --online  → PASS 9 / FAIL 0 / SKIP 0，exit 0（�
 | 更新 `docs/smoke-shot.png` | ⬜ 未做 | UI 无变化，旧截图仍有效（未做像素级核对，同 §1.5） |
 | 跑在 Ubuntu 26 上的 CI 绿 | ⬜ 未验证 | 见 §2.5：2026-10-20 的两次 run 实际镜像仍是 `ubuntu-24.04` |
 | 实机目检（断网 `file://` 打开、拨开关看灯） | ⬜ 未做 | 需用户本人做（本仓唯一的用户体验验收） |
+
+### 5.6 tag 之后的文档提交（如实记，防"tag 树不自洽"误判）
+
+tag `v0.1.1` 打在 `25c888f`，该提交里的本文件已含 §五，但 **README / plan/00 / plan/05 当时写的是
+"🟡 准备中，待落地"**——因为按本仓纪律（DoD 打勾只能在事实落地后），落盘时 tag 与 Release 尚未创建。
+tag / Release 落地、`--online` 门通过之后，这些状态行才在 **tag 之后的一个纯文档提交**里翻成 ✅。
+
+因此：**tag 树里的状态行是"准备中"，不是"已发布"**。事后核对时请以本文件 §5.4 的实测证据为准，
+不要据 tag 树的状态文字反推"发布没做成"。这与 v0.1.0 的情形同源（见 §2.4、§四 的"tag 之后只允许非 `src/` 面提交"）。
+该提交只改 `.md`，**不触及 `src/`，不影响任何附件字节**。
