@@ -17,6 +17,13 @@
 | M4 | 回放短码、只读回放视图、分享文案 | ✅ 2026-10-18 |
 | M5 | `npm run verify` 全量、单文件构建、静态扫描 | ✅ 2026-10-18（CI 首推 4/4 绿） |
 | M6 | git tag + GitHub Release + 发布留档 | ✅ 2026-10-18（`v0.1.0` 已发布） |
+| — | 补丁发布 `v0.1.1` | 🟡 准备中（2026-10-20；版本号已转正，tag / Release 待落地） |
+
+**关于 `v0.1.1`**：这是一次**元数据补丁**。`src/core/version.mjs` 不在构建依赖图里（15 个模块中不含它，
+产物里也不含版本号字符串），所以升版后 `dist/index.html` 仍是 114,516 字节、
+sha256 仍是 `4e7fdddce85f59a22fab5213f29ef819782583afaa56a702d32dc00e063bcda2` ——
+**与 v0.1.0 的附件逐字节相同**。发这一版是因为本轮改动了 `src/`（版本号文件本身），
+按本仓口径"任何 `src/` 改动都必须升版本号重发"，不能只提交不重发。玩法、关卡、短码格式**均无变化**。
 
 CI 最近一次实跑：**`39418742699`**（2026-10-20T11:58:07Z，push `main` @ `3107c8a`），
 四腿（ubuntu-latest / windows-latest × node 22 / 24）**全 success**，**注解 2 条**（均为
@@ -43,8 +50,9 @@ CI 最近一次实跑：**`39418742699`**（2026-10-20T11:58:07Z，push `main` @
 
 ## 快速开始
 
-**直接玩（不需要构建）**：下载 [v0.1.0 Release](https://github.com/yuluo554/circuit-detective/releases/tag/v0.1.0)
-里的 `circuit-detective-0.1.0.html`，用浏览器打开即可（单文件、`file://` 可用、零网络请求）。
+**直接玩（不需要构建）**：下载 [v0.1.1 Release](https://github.com/yuluo554/circuit-detective/releases/tag/v0.1.1)
+里的 `circuit-detective-0.1.1.html`，用浏览器打开即可（单文件、`file://` 可用、零网络请求）。
+（`v0.1.0` 的 `circuit-detective-0.1.0.html` 内容与此**逐字节相同**，两个版本都能玩。）
 
 从源码跑：
 

@@ -116,16 +116,23 @@ function checkReleaseDoc() {
   add("RELEASE_DOC", hasBefore && hasAfter ? "PASS" : "FAIL", `两栏: ${hasBefore}/${hasAfter}`);
 }
 
+/** tag 名 = `v` + `package.json` 的 version（K37）。硬编码 tag 名会让升版后门仍盯旧 tag → 假绿。 */
+function expectedTag() {
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+  return `v${pkg.version}`;
+}
+
 function checkTag() {
   if (MODE !== "online") {
     add("TAG_PRESENT", "SKIP", `${MODE} 模式不查远端`);
     return;
   }
+  const tag = expectedTag();
   try {
-    const local = execFileSync("git", ["rev-parse", "v0.1.0"], { cwd: ROOT, encoding: "utf8" }).trim();
-    add("TAG_PRESENT", local.length === 40 ? "PASS" : "FAIL", `local tag object ${local.slice(0, 12)}`);
+    const local = execFileSync("git", ["rev-parse", tag], { cwd: ROOT, encoding: "utf8" }).trim();
+    add("TAG_PRESENT", local.length === 40 ? "PASS" : "FAIL", `local tag object ${local.slice(0, 12)} (${tag})`);
   } catch {
-    add("TAG_PRESENT", "FAIL", "本地无 v0.1.0 tag");
+    add("TAG_PRESENT", "FAIL", `本地无 ${tag} tag`);
   }
 }
 
@@ -137,7 +144,7 @@ function checkRemote() {
   try {
     const json = execFileSync(
       "gh",
-      ["release", "view", "v0.1.0", "--json", "isDraft,assets,tagName"],
+      ["release", "view", expectedTag(), "--json", "isDraft,assets,tagName"],
       { cwd: ROOT, encoding: "utf8" },
     );
     const data = JSON.parse(json);

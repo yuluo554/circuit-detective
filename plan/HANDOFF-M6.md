@@ -224,3 +224,19 @@ npm run verify、node tools/check-release.mjs 复测基线。
 任何改动若触及 src/，发布侧必须升版本号（K37）：package.json 与 src/core/version.mjs
 两处同时改，刷新 docs/verify-sample.*，再打新 tag + Release（不覆盖 v0.1.0 附件）。
 ```
+
+## 10. 补注（2026-10-20，不覆盖上文历史读数）
+
+> 本节只追加事实，不改写 §1–§9 里带时点的既往读数。
+
+- **已发生过一次 K37 全流程**：升版 `0.1.0 → 0.1.1` + 新 tag `v0.1.1` + 新 Release，
+  `v0.1.0` 的 tag 与两个附件**未动**。留档见 `plan/RELEASE-M6.md` §五。
+- **一条新事实（下次升版必读）**：`src/core/version.mjs` **不在构建依赖图里**
+  （`tools/bundle.mjs` 从 `src/ui/app.mjs` 解析出 15 个模块，不含它），产物里也没有版本号字符串。
+  因此"升版本号"**不会改变 `dist/index.html` 的字节**——v0.1.1 的附件与 v0.1.0 的 sha256 相同
+  （`4e7fddd…`）。这不是打包漏了，是版本号在本仓**没有运行时消费方**。
+  若将来要让版本在产物/页面可见，属功能改动（改 `app.mjs` 引用 `VERSION`），届时产物字节会变。
+- **门缺陷已修**：`tools/check-release.mjs` 原先把 tag 名写死成 `"v0.1.0"`，升版后会对着旧 tag
+  报 PASS（假绿）。现改为由 `package.json.version` 派生（`expectedTag()`），并加了常驻断言
+  （`tests/release-gate.test.mjs`：门源码里不得出现字面 tag）。
+- **测试数**：137 → **138**（新增的正是上面那条防假绿断言）。

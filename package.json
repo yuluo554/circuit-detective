@@ -1,6 +1,6 @@
 {
   "name": "circuit-detective",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "黑盒电路侦探：拨开关、看灯、反推黑盒里的最少门电路",

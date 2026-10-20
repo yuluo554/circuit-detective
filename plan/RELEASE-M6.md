@@ -218,3 +218,67 @@ matrix `os: [ubuntu-latest, windows-latest]` × `node: ["22", "24"]` 与 `permis
 | 多平台冻结产物原生构建 + 原生冒烟 | 不适用 | 交付物是浏览器单文件，平台无关；CI 矩阵覆盖 Windows/Ubuntu × Node 22/24 |
 | 一致性门（题面/发布物/README 的名字与版本） | 实现 | `VERSION_SINGLE_SOURCE` + `readme-gate.test.mjs` + `check-release.mjs` 的 `DOCS_PRESENT` |
 | **方法论装订与布局门（新增）** | **实现（复盘轮补装）** | 复盘时登记为"未装订"，经用户确认后同轮补齐：`AGENTS.md` + `tools/check-sprint-layout.mjs`（8 项断言，**7 组变异全红**）+ `plan/00` 装订行 + CI 一步 + 常驻测试（测试数 133 → 137）。该提交含 `tools/`/`tests/`/`.github/`，**越出"纯文档面"**；**发布物未受影响**（`src/` 零差异、重建产物与附件 `cmp` 一致）。详见 `plan/HANDOFF-M6.md` §4 第 0 条 |
+
+## 五、补丁发布 v0.1.1（2026-10-20）
+
+> **为什么发这一版**：本轮（跟进级迭代）改了 `src/core/version.mjs`（0.1.0 → 0.1.1）。
+> 按本仓已改写口径"**任何 `src/` 改动都必须升版本号重发**"，只提交不重发会自相矛盾。
+> 这是**元数据补丁**：玩法、关卡生成、短码格式、UI 全部未变。
+
+### 5.1 版本与 tag（K37）
+
+| 项 | 值 |
+| --- | --- |
+| 版本 | `0.1.1`（`package.json` 与 `src/core/version.mjs` **两处同时**） |
+| 门校验 | `VERSION_SINGLE_SOURCE` → `package=0.1.1 code=0.1.1` PASS |
+| tag | `v0.1.1`（annotated），由 `package.json.version` 派生（`expectedTag()`） |
+| 旧 tag | `v0.1.0`（对象 `76b56283d167` → `56f633d`）**未移动、未删除**，其附件保持原样 |
+
+### 5.2 本轮修掉的门缺陷（假绿）
+
+| 缺陷 | 症状 | 处理 |
+| --- | --- | --- |
+| 发布门硬编码 tag 名 | `tools/check-release.mjs` 里 `TAG_PRESENT` / `REMOTE_RELEASE` 直接写死 `"v0.1.0"`。升到 0.1.1 后，`--online` 会继续对着**旧 tag 与旧 Release** 报 PASS——"版本升了、门还绿" | 新增 `expectedTag()` 从 `package.json.version` 派生；测试 `tests/release-gate.test.mjs` 加一条断言"门源码里不得出现字面 tag，且必须读 `pkg.version`"（负控：字面量一旦回来立刻红） |
+
+### 5.3 产物与附件
+
+| 附件 | 大小 | sha256 |
+| --- | --- | --- |
+| `circuit-detective-0.1.1.html` | 114,516 字节（gzip 34,806 / 外链 0 / 15 模块） | `4e7fdddce85f59a22fab5213f29ef819782583afaa56a702d32dc00e063bcda2` |
+| `verify-sample.txt` | 1,547 字节 | `d95d6e5ff85b04c4d2765071abc85f7cf66058dd950ead421f494a86fd7b7fcb` |
+
+**★ 必须如实记的一条**：v0.1.1 的 HTML 附件与 v0.1.0 **逐字节相同**（sha256 同值）。
+原因不是"忘了改"，而是 `src/core/version.mjs` **不在构建依赖图里**——`tools/bundle.mjs` 从
+`src/ui/app.mjs` 出发解析出 15 个模块，`version.mjs` 不在其中，产物里也没有版本号字符串。
+所以"升版本号"这个动作在本仓**不影响交付字节**。
+
+这条同时说明一件事：本仓的 `VERSION` **没有任何消费方**（`grep -rn "version.mjs" src/ tools/ tests/`
+只有 `check-release.mjs` 在文本层面读它做一致性断言）。要想让版本号在产物里可见，
+得让 `app.mjs` 引用它并渲染到页面上——那属于功能改动，本轮**不做**（见 §5.5 未做项）。
+
+### 5.4 复核证据
+
+```text
+npm test                     → ℹ tests 138 / pass 138 / fail 0        （137 → 138：+1 防假绿）
+npm run verify               → 结论: 全绿（10 段）
+npm run fixtures:check       → fixture 校验通过: 1000 条，字节级一致
+npm run layout               → 结论: 全绿
+node tools/check-dist.mjs    → PASS dist: 114516 字节 / gzip 34806 字节 / 外链 0
+npm run smoke                → 结论: 全绿（含"篡改一位"负控）
+npm run build                → 114516 字节 / sha256 4e7fddd…
+node tools/check-release.mjs           → PASS 7 / FAIL 0 / SKIP 2，exit 0
+node tools/check-release.mjs --online  → PASS 9 / FAIL 0 / SKIP 0，exit 0（查的是 v0.1.1）
+```
+
+`docs/verify-sample.{txt,json}` 按 K32 重刷（`node tools/verify.mjs --out docs/verify-sample.json > docs/verify-sample.txt`）。
+与 v0.1.0 的样例相比**只有计时字段变化**（`p50ms 0.171→0.174`、`p99ms 0.714→0.756`），
+其余判定字段逐项相同——计时只报告、不参与判定。
+
+### 5.5 本轮明确没做
+
+| 项 | 状态 | 原因 |
+| --- | --- | --- |
+| 让版本号在产物里可见（页面/`--version`） | ⬜ 未做 | 属功能改动，会改变 UI 与产物字节；本轮是元数据补丁，不该顺手扩范围 |
+| 更新 `docs/smoke-shot.png` | ⬜ 未做 | UI 无变化，旧截图仍有效（未做像素级核对，同 §1.5） |
+| 跑在 Ubuntu 26 上的 CI 绿 | ⬜ 未验证 | 见 §2.5：2026-10-20 的两次 run 实际镜像仍是 `ubuntu-24.04` |
+| 实机目检（断网 `file://` 打开、拨开关看灯） | ⬜ 未做 | 需用户本人做（本仓唯一的用户体验验收） |

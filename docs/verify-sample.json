@@ -36,8 +36,8 @@
         "solverRecheckTotal": 10000,
         "solverRecheckMismatch": 0,
         "solverRecheckPassRate": 1,
-        "p50ms": 0.171,
-        "p99ms": 0.714,
+        "p50ms": 0.174,
+        "p99ms": 0.756,
         "optimalHistogram": {
           "2": 3945,
           "3": 2979,

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,4 +63,17 @@ test("发布门：检查项数量与结论行数对账", () => {
   const total = Number(summary[1]) + Number(summary[2]) + Number(summary[3]);
   const lines = stdout.split("\n").filter((line) => /^(PASS|FAIL|SKIP)\s{2}/.test(line));
   assert.equal(total, lines.length);
+});
+
+test("发布门：查的 tag 名由 package.json 的 version 派生，不是硬编码（升版后不得继续盯旧 tag）", () => {
+  // 起因：0.1.0 → 0.1.1 时门里硬编码 "v0.1.0"，升版后 `--online` 仍会对着旧 tag / 旧 Release 报 PASS ——
+  // 即"版本升了、门还绿"，是最难发现的一类假绿。判据：门源码里不得出现字面 tag，且必须读 package.json。
+  const source = readFileSync(GATE, "utf8");
+  const literalTags = [...source.matchAll(/["']v\d+\.\d+\.\d+["']/g)].map((m) => m[0]);
+  assert.deepEqual(literalTags, [], `发布门不应硬编码 tag 名（命中: ${literalTags.join(",")}）`);
+  assert.match(source, /pkg\.version/, "发布门应由 package.json 的 version 派生 tag 名");
+
+  // 断言派生结果与当前版本一致：把 package.json 的版本改成任意值，门报的 tag 名跟着变。
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/, "version 应是正式版（无 -dev/-rc 后缀）");
 });
