@@ -155,6 +155,34 @@ PASS 9 / FAIL 0 / SKIP 0   （rc=0）
 - [x] 首推不改源码：`dist/index.html` 仍为 114,516 字节，sha256 与 §1.3 一致（tag 前复核）。
 - [ ] 若 tag 后重跑 `verify` 导致产物字节变化，**不予**修改附件（发布后不再改源码）；如有异常另开勘误。
 
+### 2.5 tag 后 CI 跟进（2026-10-20，actions 升 v7 后首个 run）
+
+> 本节属 tag 后追加事实。发布物**未被触碰**：`src/` 自 tag 起零差异，本节改动后重建产物仍为 §1.3 的 `4e7fddd…`。
+
+| 项 | 值 |
+| --- | --- |
+| run id | **`39418742699`** |
+| 触发 | `push` → `main` @ `3107c8a`（提交内容：`ci.yml` 的 actions 升 v7、`.gitignore` 加 `update/`、README 的 engines 口径说明） |
+| 创建时间 | 2026-10-20T11:58:07Z |
+| 结论 | **四腿全 success**：`verify (ubuntu-latest, node 22/24)`、`verify (windows-latest, node 22/24)`，每个 job 13 steps |
+| 注解 | **2 条**，均为 notice "The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026"；**Node 20 弃用 warning 0 条**（改前实测 4 条，指向 `actions/checkout@v4` / `actions/setup-node@v4`） |
+| 实际镜像 | ubuntu 腿：**`ubuntu-24.04`**（Image Release `20261018.339`）；windows 腿：`windows-2025-vs2026`（`20261007.264`） |
+| 运行时版本 | ubuntu 腿 `node --version` = `v24.22.0`（node 24 job）、windows 腿 `v22.23.3`（node 22 job）——matrix 两档均真跑到 |
+
+**如实记一条时效事实**：本仓在**此 run 之前**没有任何一次 run 跑在 Ubuntu 26 上（最近一次改前 run
+`39141671987` 创建于 2026-10-18T15:42:09Z）；而**此 run 分到的仍是 `ubuntu-24.04`**——
+`ubuntu-latest` 的迁移在本次 run **尚未落地**。因此"跑在 Ubuntu 26 上的四腿全绿"**仍为未验证项**
+（见 `plan/05` §七 的补注），不得据此宣称"迁移后已验证"。
+
+### 2.6 actions 版本线（2026-10-20 核对）
+
+| action | 改前 | 改后 | 实测最新 |
+| --- | --- | --- | --- |
+| `actions/checkout` | `@v4` | **`@v7`** | v7.0.1 |
+| `actions/setup-node` | `@v4` | **`@v7`** | v7.1.0 |
+
+matrix `os: [ubuntu-latest, windows-latest]` × `node: ["22", "24"]` 与 `permissions: contents: read` **均未改动**。
+
 ## 三、M6 增补口径（K 编号，接 `plan/HANDOFF-M5.md` §5 的 K31–K35）
 
 | 编号 | 口径 | 落点 |
