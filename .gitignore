@@ -50,3 +50,6 @@ desktop.ini
 # Local artifacts
 *.local
 release/
+
+# 迭代交接目录（诊断/执行记录，不随仓库走；否则发布门 WORKTREE_CLEAN 会红）
+update/

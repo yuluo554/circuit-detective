@@ -65,6 +65,11 @@ npm run verify:engines # 跨引擎一致性：Node + Chromium + Firefox 关卡 J
 
 **零依赖**：`dependencies` 与 `devDependencies` 均为空，`git clone` 后无需 `npm install`。
 
+**Node 版本口径**：本仓的**支持面由 CI matrix 声明**（`.github/workflows/ci.yml` 的 `node: ["22", "24"]`，
+在 ubuntu-latest 与 windows-latest 上各跑一遍）；`package.json` 的 `engines.node`（`>=22`）只作
+**npm 安装时的提示**，不是兼容性承诺的第二份声明——两者目前一致，但**门里没有断言二者相容**
+（改任一处时请同时问另一处要不要跟）。
+
 ## 校验输出（`npm run verify`）
 
 | 段 | 判据 |
